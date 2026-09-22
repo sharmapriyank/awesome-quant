@@ -4,6 +4,8 @@ A curated list of insanely awesome libraries, packages and resources for Quants 
 
 [![](https://awesome.re/badge.svg)](https://awesome.re)
 
+The catalog is also machine-readable: [site/projects.csv](site/projects.csv) (name, URL, language tags, category, GitHub stars, last commit, archived flag).
+
 ## Contents
 
 - [Numerical Libraries & Data Structures](#numerical-libraries--data-structures)
@@ -232,7 +234,7 @@ A curated list of insanely awesome libraries, packages and resources for Quants 
 - [Backtesting.py](https://kernc.github.io/backtesting.py/) - `Python` - Backtest trading strategies in Python.
 - [quantstats](https://github.com/ranaroussi/quantstats) - `Python` - Portfolio analytics for quants, written in Python.
 - [jquantstats](https://github.com/Jebel-Quant/jquantstats) - `Python` - Modern variation of quantstats, with additional features and performance improvements.
-- [Quantdom](https://github.com/constverum/Quantdom) - `Python` - Python-based framework for backtesting trading strategies & analyzing financial markets. [GUI :neckbeard:]
+- [Quantdom](https://github.com/constverum/Quantdom) - `Python` - Python-based framework for backtesting trading strategies & analyzing financial markets.
 - [freqtrade](https://github.com/freqtrade/freqtrade) - `Python` - Free, open source crypto trading bot.
 - [algorithmic-trading-with-python](https://github.com/chrisconlan/algorithmic-trading-with-python) - `Python` - Free `pandas` and `scikit-learn` resources for trading simulation, backtesting, and machine learning on financial data.
 - [Qlib](https://github.com/microsoft/qlib) - `Python` - An AI-oriented Quantitative Investment Platform by Microsoft. Full ML pipeline of data processing, model training, back-testing; and covers the entire chain of quantitative investment: alpha seeking, risk modeling, portfolio optimization, and order execution.
