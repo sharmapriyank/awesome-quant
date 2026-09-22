@@ -3,7 +3,7 @@ import io
 import unittest
 import warnings
 from contextlib import redirect_stderr, redirect_stdout
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from types import SimpleNamespace
 from unittest.mock import patch
 
@@ -19,8 +19,7 @@ from scripts.review_pr import (
     url_reachable,
 )
 
-
-NOW = datetime(2026, 8, 10, tzinfo=timezone.utc)
+NOW = datetime(2026, 8, 10, tzinfo=UTC)
 ENTRY_URL = "https://github.com/example/fresh"
 VALID_PATCH = """@@ -1,1 +1,2 @@
  ## Trading & Backtesting

@@ -26,7 +26,6 @@ from scripts.readme_entries import (
     HEADING_RE,
     HISTORICAL_SECTION,
     HISTORICAL_TAG,
-    MARKDOWN_URL_RE,
     NO_LANGUAGE_REQUIRED_SECTIONS,
     VALID_SECTIONS,
     ReadmeEntry,
@@ -82,7 +81,7 @@ def parse_added_lines_from_diff(diff_text: str) -> set[int]:
         if new_line is None:
             continue
 
-        if line.startswith("+++") or line.startswith("---"):
+        if line.startswith(("+++", "---")):
             continue
         if line.startswith("+"):
             added.add(new_line)

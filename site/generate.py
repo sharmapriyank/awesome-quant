@@ -62,9 +62,9 @@ def parse_readme(path: str) -> list[dict]:
 
     skip_sections = {"Contents"}
 
-    with open(path, "r", encoding="utf-8") as f:
-        for line in f:
-            line = re_badge.sub(" ", line).rstrip("\n")
+    with open(path, encoding="utf-8") as f:
+        for raw_line in f:
+            line = re_badge.sub(" ", raw_line).rstrip("\n")
 
             m = re_h2.match(line)
             if m:
@@ -140,7 +140,7 @@ def parse_readme(path: str) -> list[dict]:
 def load_csv(path: str) -> list[dict]:
     """Load projects from CSV produced by parse.py."""
     entries = []
-    with open(path, "r", encoding="utf-8") as f:
+    with open(path, encoding="utf-8") as f:
         reader = csv.DictReader(f)
         for row in reader:
             # Normalize booleans
@@ -304,12 +304,12 @@ def build_tag_cloud(entries: list[dict]) -> str:
 def generate_html(entries: list[dict]) -> str:
     """Generate the full HTML page from project entries."""
     languages = sorted(
-        set(
+        {
             lang.strip()
             for e in entries
             for lang in e.get("languages", e.get("language", "")).split(",")
             if lang.strip() in PROGRAMMING_LANGUAGES
-        )
+        }
     )
 
     # Generate tag cloud
@@ -324,7 +324,6 @@ def generate_html(entries: list[dict]) -> str:
         desc = esc(e["description"])
         category = esc(e.get("category", ""))
         github_url = esc(e.get("github_url", ""))
-        repo = esc(e.get("repo", ""))
         stars = int(e.get("stars", 0) or 0)
         last_commit = e.get("last_commit", "") or ""
         is_github = e.get("github", False)

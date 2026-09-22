@@ -6,7 +6,6 @@ from pathlib import Path
 from scripts.readme_entries import HISTORICAL_SECTION, iter_readme_entries
 from scripts.validate_readme import build_duplicate_indexes, validate_entry
 
-
 ROOT = Path(__file__).resolve().parents[1]
 
 

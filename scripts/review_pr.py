@@ -13,11 +13,12 @@ import socket
 import ssl
 import sys
 from collections import Counter
+from collections.abc import Callable
 from dataclasses import dataclass
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from functools import cache
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any
 from urllib.parse import urlsplit, urlunsplit
 
 from github import Auth, Github, GithubException
@@ -36,7 +37,6 @@ from scripts.readme_entries import (
     extract_languages,
     nested_reference_repairs,
 )
-
 
 NO_TAG_SECTIONS = {
     "Commercial & Proprietary Services",
@@ -411,7 +411,7 @@ def url_reachable(
         for method in ("HEAD", "GET"):
             status = requester(
                 parsed.hostname,
-                sorted(addresses)[0],
+                min(addresses),
                 port,
                 target,
                 method,
@@ -721,7 +721,7 @@ def review_pr(
     now: datetime | None = None,
     check_pull_request_duplicates: bool = True,
 ) -> tuple[list[Finding], str, int]:
-    current_time = now or datetime.now(timezone.utc)
+    current_time = now or datetime.now(UTC)
 
     repository = client.get_repo(repository_name)
     pull_request = repository.get_pull(pr_number)

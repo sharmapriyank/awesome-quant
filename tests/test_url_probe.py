@@ -12,7 +12,6 @@ from scripts.url_probe import (
     validate_public_url,
 )
 
-
 PUBLIC_URL = "https://example.test/start"
 
 
@@ -101,11 +100,13 @@ class UrlProbeTests(unittest.TestCase):
     def test_private_dns_answer_is_rejected(self):
         answers = [(socket.AF_INET, socket.SOCK_STREAM, 6, "", ("127.0.0.1", 443))]
 
-        with patch("scripts.url_probe.socket.getaddrinfo", return_value=answers):
-            with self.assertRaisesRegex(
+        with (
+            patch("scripts.url_probe.socket.getaddrinfo", return_value=answers),
+            self.assertRaisesRegex(
                 UnsafeUrlError, "resolved address is not globally routable"
-            ):
-                validate_public_url(PUBLIC_URL)
+            ),
+        ):
+            validate_public_url(PUBLIC_URL)
 
     def test_dns_resolution_failures_are_retried_as_transient(self):
         delays = []
@@ -233,11 +234,13 @@ class UrlProbeTests(unittest.TestCase):
         ):
             with self.subTest(address=address):
                 answers = [(family, socket.SOCK_STREAM, 6, "", (address, 443))]
-                with patch("scripts.url_probe.socket.getaddrinfo", return_value=answers):
-                    with self.assertRaisesRegex(
+                with (
+                    patch("scripts.url_probe.socket.getaddrinfo", return_value=answers),
+                    self.assertRaisesRegex(
                         UnsafeUrlError, "resolved address is not globally routable"
-                    ):
-                        validate_public_url(PUBLIC_URL)
+                    ),
+                ):
+                    validate_public_url(PUBLIC_URL)
 
     def test_non_public_embedded_ipv4_addresses_are_rejected(self):
         for address in ("64:ff9b::127.0.0.1", "2002:7f00:1::"):
@@ -245,11 +248,13 @@ class UrlProbeTests(unittest.TestCase):
                 answers = [
                     (socket.AF_INET6, socket.SOCK_STREAM, 6, "", (address, 443))
                 ]
-                with patch("scripts.url_probe.socket.getaddrinfo", return_value=answers):
-                    with self.assertRaisesRegex(
+                with (
+                    patch("scripts.url_probe.socket.getaddrinfo", return_value=answers),
+                    self.assertRaisesRegex(
                         UnsafeUrlError, "resolved address is not globally routable"
-                    ):
-                        validate_public_url(PUBLIC_URL)
+                    ),
+                ):
+                    validate_public_url(PUBLIC_URL)
 
     def test_public_unicast_and_public_nat64_addresses_are_allowed(self):
         for family, address, expected in (

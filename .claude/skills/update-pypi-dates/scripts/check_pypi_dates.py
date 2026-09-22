@@ -5,11 +5,8 @@ Check PyPI projects for last updated dates and update README.md entries.
 
 import json
 import re
-import subprocess
 import sys
-from datetime import datetime
 from pathlib import Path
-from typing import Dict, Optional, Tuple
 from urllib.request import urlopen
 
 # PyPI projects to track
@@ -23,7 +20,7 @@ PYPI_PROJECTS = {
 README_PATH = Path(__file__).parent.parent.parent.parent.parent / "README.md"
 
 
-def get_pypi_last_updated(package_name: str) -> Optional[str]:
+def get_pypi_last_updated(package_name: str) -> str | None:
     """
     Fetch the last updated date for a PyPI package.
 
@@ -54,7 +51,7 @@ def get_pypi_last_updated(package_name: str) -> Optional[str]:
         return None
 
 
-def find_readme_entry(readme_content: str, package_display_name: str) -> Tuple[Optional[int], Optional[str]]:
+def find_readme_entry(readme_content: str, package_display_name: str) -> tuple[int | None, str | None]:
     """
     Find a README entry for a package.
 
@@ -70,14 +67,14 @@ def find_readme_entry(readme_content: str, package_display_name: str) -> Tuple[O
     return None, None
 
 
-def update_readme_entry(readme_content: str, package_display_name: str, new_date: str) -> Tuple[str, bool]:
+def update_readme_entry(readme_content: str, package_display_name: str, new_date: str) -> tuple[str, bool]:
     """
     Update or add the last updated date to a README entry.
 
     Returns: (updated_content, was_changed)
     """
     lines = readme_content.split("\n")
-    line_num, entry_text = find_readme_entry(readme_content, package_display_name)
+    line_num, _entry_text = find_readme_entry(readme_content, package_display_name)
 
     if line_num is None:
         return readme_content, False
@@ -122,7 +119,7 @@ def main():
 
         last_updated = get_pypi_last_updated(pypi_name)
         if last_updated is None:
-            print(f"  ⚠️  Could not find last updated date")
+            print("  ⚠️  Could not find last updated date")
             continue
 
         updated_content, was_changed = update_readme_entry(

@@ -116,7 +116,7 @@ class NestedReferenceRepairTests(unittest.TestCase):
             git('commit', '-qam', 'Repair')
             result = subprocess.run(
                 [sys.executable, str(script), '--diff-from', base], cwd=directory,
-                capture_output=True, text=True,
+                capture_output=True, text=True, check=False,
             )
             self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
             self.assertIn('Validated 0 entries', result.stdout)
@@ -124,7 +124,7 @@ class NestedReferenceRepairTests(unittest.TestCase):
             git('commit', '-qam', 'Extra reference')
             result = subprocess.run(
                 [sys.executable, str(script), '--diff-from', base], cwd=directory,
-                capture_output=True, text=True,
+                capture_output=True, text=True, check=False,
             )
             self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
             self.assertIn('added README bullet does not match entry regex', result.stdout)
