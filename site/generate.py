@@ -8,9 +8,18 @@ Can run in two modes:
 
 import csv
 import html
+import os
 import re
 import sys
 from pathlib import Path
+
+# Repo that this deployment's site links back to (Submit a Project, GitHub,
+# Contribute). Overridable for previews/forks via env var.
+REPO_SLUG = os.environ.get("SITE_REPO_SLUG", "sharmapriyank/awesome-quant")
+REPO_URL = f"https://github.com/{REPO_SLUG}"
+REPO_CONTRIBUTING_URL = f"{REPO_URL}/blob/master/CONTRIBUTING.md"
+MAINTAINER_NAME = os.environ.get("SITE_MAINTAINER_NAME", "sharmapriyank")
+MAINTAINER_URL = os.environ.get("SITE_MAINTAINER_URL", "https://github.com/sharmapriyank")
 
 
 def slugify(text: str) -> str:
@@ -393,8 +402,8 @@ def generate_html(entries: list[dict]) -> str:
       <nav class="nav">
         <span class="nav-brand">awesome-quant</span>
         <div class="nav-links">
-          <a href="https://github.com/wilsonfreitas/awesome-quant/blob/master/CONTRIBUTING.md" class="nav-submit">Submit a Project</a>
-          <a href="https://github.com/wilsonfreitas/awesome-quant">GitHub</a>
+          <a href="{REPO_CONTRIBUTING_URL}" class="nav-submit">Submit a Project</a>
+          <a href="{REPO_URL}">GitHub</a>
           <button class="theme-toggle" aria-label="Toggle dark mode" title="Toggle dark mode">
             <svg class="icon-sun" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>
             <svg class="icon-moon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
@@ -404,7 +413,7 @@ def generate_html(entries: list[dict]) -> str:
       <div class="hero-content">
         <h1>Awesome Quant</h1>
         <p class="hero-subtitle">A curated list of insanely awesome libraries, packages and resources for Quants.</p>
-        <p class="hero-maintained">Maintained by <a href="https://github.com/wilsonfreitas">Wilson Freitas</a></p>
+        <p class="hero-maintained">Maintained by <a href="{MAINTAINER_URL}">{MAINTAINER_NAME}</a></p>
         <div class="hero-stats">
           <span class="stat"><strong>{total}</strong> projects</span>
           <span class="stat-sep"></span>
@@ -464,16 +473,16 @@ def generate_html(entries: list[dict]) -> str:
       <div class="shell">
         <h2>Know a great project?</h2>
         <p>Contribute to the list by opening a pull request on GitHub.</p>
-        <a href="https://github.com/wilsonfreitas/awesome-quant" class="btn" target="_blank" rel="noopener">Contribute on GitHub</a>
+        <a href="{REPO_URL}" class="btn" target="_blank" rel="noopener">Contribute on GitHub</a>
       </div>
     </section>
   </main>
 
   <footer class="footer">
     <div class="shell">
-      <span>Maintained by <a href="https://github.com/wilsonfreitas">Wilson Freitas</a></span>
+      <span>Maintained by <a href="{MAINTAINER_URL}">{MAINTAINER_NAME}</a></span>
       <span class="footer-sep">&middot;</span>
-      <a href="https://github.com/wilsonfreitas/awesome-quant">GitHub</a>
+      <a href="{REPO_URL}">GitHub</a>
       <span class="footer-sep">&middot;</span>
       <a href="https://awesome.re">awesome.re</a>
     </div>

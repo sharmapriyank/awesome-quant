@@ -40,7 +40,7 @@ languages, but may also identify runtimes, protocols, interfaces, data types, or
 uv sync --no-install-project
 
 # Validate README entries changed in a PR
-uv run python scripts/validate_readme.py --diff-from origin/main
+uv run python scripts/validate_readme.py --diff-from origin/master
 
 # Validate the full README; legacy format/duplicate/URL issues are warnings by default
 uv run python scripts/validate_readme.py

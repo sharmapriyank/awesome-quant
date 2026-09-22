@@ -2,7 +2,7 @@ import unittest
 from pathlib import Path
 
 
-WORKFLOW_PATH = Path(__file__).parents[1] / ".github/workflows/readme-audit.yml"
+WORKFLOW_PATH = Path(__file__).parents[1] / "ci/workflows/readme-audit.yml"
 
 
 class ReadmeAuditWorkflowTests(unittest.TestCase):

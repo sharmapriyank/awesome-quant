@@ -3,12 +3,12 @@ from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[1]
-WORKFLOW_PATH = ROOT / ".github" / "workflows" / "pr-review.yml"
+WORKFLOW_PATH = ROOT / "ci" / "workflows" / "pr-review.yml"
 EXPECTED_WORKFLOW = """name: PR Review
 
 on:
     pull_request_target:
-        branches: [main]
+        branches: [master]
         types: [opened, synchronize, reopened, edited]
 
 permissions:

@@ -66,7 +66,7 @@ uv sync --no-install-project
 Validate README entries added relative to the base branch:
 
 ```bash
-uv run python scripts/validate_readme.py --diff-from origin/main
+uv run python scripts/validate_readme.py --diff-from origin/master
 ```
 
 Validate the full README:
