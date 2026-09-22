@@ -42,7 +42,7 @@ A curated list of insanely awesome libraries, packages and resources for Quants 
 - [xts](https://github.com/joshuaulrich/xts) - `R` - eXtensible Time Series: Provide for uniform handling of R's different time-based data classes by extending zoo, maximizing native format information preservation and allowing for user level customization and extension, while simplifying cross-class interoperability.
 - [data.table](https://github.com/Rdatatable/data.table) - `R` - Extension of data.frame: Fast aggregation of large data (e.g. 100GB in RAM), fast ordered joins, fast add/modify/delete of columns by group using no copies at all, list columns and a fast file reader (fread). Offers a natural and flexible syntax, for faster development.
 - [sparseEigen](https://github.com/dppalomar/sparseEigen) - `R` - Sparse principal component analysis.
-- [TSdbi](http://tsdbi.r-forge.r-project.org/) - `R` - Provides a common interface to time series databases.
+- [TSdbi](https://tsdbi.r-forge.r-project.org/) - `R` - Provides a common interface to time series databases.
 - [tseries](https://cran.r-project.org/web/packages/tseries/index.html) - `R` - Time Series Analysis and Computational Finance.
 - [zoo](https://cran.r-project.org/web/packages/zoo/index.html) - `R` - S3 Infrastructure for Regular and Irregular Time Series (Z's Ordered Observations).
 - [tis](https://cran.r-project.org/web/packages/tis/index.html) - `R` - Functions and S3 classes for time indexes and time indexed series, which are compatible with FAME frequencies.
@@ -93,13 +93,13 @@ A curated list of insanely awesome libraries, packages and resources for Quants 
 - [RQuantLib](https://github.com/eddelbuettel/rquantlib) - `R` - RQuantLib connects GNU R with QuantLib.
 - [quantmod](https://cran.r-project.org/web/packages/quantmod/index.html) - `R` - Quantitative Financial Modelling Framework. [GitHub](https://github.com/joshuaulrich/quantmod)
 - [Rmetrics](https://www.rmetrics.org) - `R` - The premier open source software solution for teaching and training quantitative finance.
-  - [fAsianOptions](https://cran.r-project.org/web/packages/fAsianOptions/index.html) - EBM and Asian Option Valuation.
-  - [fAssets](https://cran.r-project.org/web/packages/fAssets/index.html) - Analysing and Modelling Financial Assets.
-  - [fBasics](https://cran.r-project.org/web/packages/fBasics/index.html) - Markets and Basic Statistics.
-  - [fBonds](https://cran.r-project.org/web/packages/fBonds/index.html) - Bonds and Interest Rate Models.
-  - [fExoticOptions](https://cran.r-project.org/web/packages/fExoticOptions/index.html) - Exotic Option Valuation.
-  - [fOptions](https://cran.r-project.org/web/packages/fOptions/index.html) - Pricing and Evaluating Basic Options.
-  - [fPortfolio](https://cran.r-project.org/web/packages/fPortfolio/index.html) - Portfolio Selection and Optimization.
+  - [fAsianOptions](https://cran.r-project.org/web/packages/fAsianOptions/index.html) - `R` - EBM and Asian Option Valuation.
+  - [fAssets](https://cran.r-project.org/web/packages/fAssets/index.html) - `R` - Analysing and Modelling Financial Assets.
+  - [fBasics](https://cran.r-project.org/web/packages/fBasics/index.html) - `R` - Markets and Basic Statistics.
+  - [fBonds](https://cran.r-project.org/web/packages/fBonds/index.html) - `R` - Bonds and Interest Rate Models.
+  - [fExoticOptions](https://cran.r-project.org/web/packages/fExoticOptions/index.html) - `R` - Exotic Option Valuation.
+  - [fOptions](https://cran.r-project.org/web/packages/fOptions/index.html) - `R` - Pricing and Evaluating Basic Options.
+  - [fPortfolio](https://cran.r-project.org/web/packages/fPortfolio/index.html) - `R` - Portfolio Selection and Optimization.
 - [sde](https://cran.r-project.org/web/packages/sde/index.html) - `R` - Simulation and Inference for Stochastic Differential Equations.
 - [YieldCurve](https://cran.r-project.org/web/packages/YieldCurve/index.html) - `R` - Modelling and estimation of the yield curve.
 - [SmithWilsonYieldCurve](https://cran.r-project.org/web/packages/SmithWilsonYieldCurve/index.html) - `R` - Constructs a yield curve by the Smith-Wilson method from a table of LIBOR and SWAP rates.
@@ -161,11 +161,11 @@ A curated list of insanely awesome libraries, packages and resources for Quants 
 - [ta4j](https://github.com/ta4j/ta4j) - `Java` - A Java library for technical analysis.
 - [IndicatorTS](https://github.com/cinar/indicatorts) - `JavaScript` - Indicator is a TypeScript module providing various stock technical analysis indicators, strategies, and a backtest framework for trading.
 - [orderflow](https://github.com/tiagosiebler/orderflow) - `JavaScript` - Orderflow trade aggregator for building Footprint Candles from exchange websocket data.
-- [IndicatorGo](https://github.com/cinar/indicator) - `Golang` - IndicatorGo is a Golang module providing various stock technical analysis indicators, strategies, and a backtest framework for trading.
+- [IndicatorGo](https://github.com/cinar/indicator) - `Go` - IndicatorGo is a Golang module providing various stock technical analysis indicators, strategies, and a backtest framework for trading.
 - [TradeAggregation](https://github.com/MathisWellmann/trade_aggregation-rs) - `Rust` - Aggregate trades into user-defined candles using information driven rules.
 - [SlidingFeatures](https://github.com/MathisWellmann/sliding_features-rs) - `Rust` - Chainable tree-like sliding windows for signal processing and technical analysis.
 - [fin-primitives](https://github.com/Mattbusel/fin-primitives) - `Rust` - Financial market primitives in Rust: Price/Quantity/Symbol newtypes, BTreeMap order book, OHLCV aggregation, SMA/EMA/RSI indicators, position ledger with PnL, and composable risk monitor.
-- [Wickra](https://github.com/wickra-lib/wickra) - `Rust` `Python` `JavaScript` `C++` `C#` `Golang` `Java` `R` - Streaming-first technical-analysis library with a Rust core: 514 indicators updating in O(1) per tick, with bit-exact batch-vs-streaming results.
+- [Wickra](https://github.com/wickra-lib/wickra) - `Rust` `Python` `JavaScript` `C++` `C#` `Go` `Java` `R` - Streaming-first technical-analysis library with a Rust core: 514 indicators updating in O(1) per tick, with bit-exact batch-vs-streaming results.
 - [wickworks](https://github.com/psyb0t/docker-wickworks) - `REST` `MCP` - Stateless OHLC analyzer: POST bars and requested indicators, get back RSI/MACD/Bollinger/ADX/ATR/VWAP/Ichimoku plus smart-money-concept primitives (order blocks, FVGs, BOS/CHoCH, swing structure). No database, no AI signals.
 
 ## Trading & Backtesting
@@ -198,7 +198,7 @@ A curated list of insanely awesome libraries, packages and resources for Quants 
 - [Vibe-Trading](https://github.com/HKUDS/Vibe-Trading) - `Python` - Natural-language multi-agent finance research agent with 29 swarm presets, 70 skills, and 28 auto-discovered tools; 7 backtest engines covering A-shares/US/Crypto/Futures/Forex/Options plus a cross-market CompositeEngine with shared capital pool; 5-source auto-fallback data layer (tushare/okx/yfinance/akshare/ccxt); 17-tool MCP server; includes trade-journal behavioral diagnostics for 同花顺/东财/富途 exports.
 - [DeepAlpha](https://deepalphabot.com) - `Python` - AI crypto trading bot for Bybit with 70.9% walk-forward validated accuracy on out-of-sample data, LightGBM + XGBoost ensemble with 72 ML features. [GitHub](https://github.com/stefanoviana/deepalpha)
 - [the0](https://github.com/alexanderwanyoike/the0) - `Python` - Self-hosted execution engine for algorithmic trading bots. Write strategies in Python, TypeScript, Rust, C++, C#, Scala, or Haskell and deploy with one command. Each bot runs in an isolated container with scheduled or streaming execution.
-- [autonomous-audit](https://pypi.org/project/autonomous-audit/) - `Python` - Tamper-evident SHA-256 hash-chain audit log and human-readable report for AI trading-agent decisions; read-only, offline, and dependency-free (Python standard library only). [GitHub](https://github.com/Autonomous-Asset-Management-Agents/autonomous_/tree/main/packages/autonomous-audit)
+- [autonomous-audit](https://pypi.org/project/autonomous-audit/) - `Python` - Tamper-evident SHA-256 hash-chain audit log and human-readable report for AI trading-agent decisions; read-only, offline, and dependency-free (Python standard library only). [GitHub](https://github.com/Autonomous-Asset-Management-Agents/autonomous_)
 - [Investing algorithm framework](https://github.com/coding-kitties/investing-algorithm-framework) - `Python` - Framework for developing, backtesting, and deploying automated trading algorithms.
 - [Lumibot](https://github.com/Lumiwealth/lumibot) - `Python` - Algorithmic trading framework where the same code runs for backtesting and live trading across stocks, options, crypto, futures, and forex with multiple brokers including Alpaca, Interactive Brokers, Tradier, and Schwab.
 - [QSTrader](https://github.com/mhallsmoore/qstrader) - `Python` - QSTrader backtesting simulation engine.
@@ -232,7 +232,7 @@ A curated list of insanely awesome libraries, packages and resources for Quants 
 - [Backtesting.py](https://kernc.github.io/backtesting.py/) - `Python` - Backtest trading strategies in Python.
 - [quantstats](https://github.com/ranaroussi/quantstats) - `Python` - Portfolio analytics for quants, written in Python.
 - [jquantstats](https://github.com/Jebel-Quant/jquantstats) - `Python` - Modern variation of quantstats, with additional features and performance improvements.
-- [Quantdom](https://github.com/constverum/Quantdom) - `Python` - Python-based framework for backtesting trading strategies & analyzing financial markets [GUI :neckbeard:.]
+- [Quantdom](https://github.com/constverum/Quantdom) - `Python` - Python-based framework for backtesting trading strategies & analyzing financial markets. [GUI :neckbeard:]
 - [freqtrade](https://github.com/freqtrade/freqtrade) - `Python` - Free, open source crypto trading bot.
 - [algorithmic-trading-with-python](https://github.com/chrisconlan/algorithmic-trading-with-python) - `Python` - Free `pandas` and `scikit-learn` resources for trading simulation, backtesting, and machine learning on financial data.
 - [Qlib](https://github.com/microsoft/qlib) - `Python` - An AI-oriented Quantitative Investment Platform by Microsoft. Full ML pipeline of data processing, model training, back-testing; and covers the entire chain of quantitative investment: alpha seeking, risk modeling, portfolio optimization, and order execution.
@@ -294,15 +294,15 @@ A curated list of insanely awesome libraries, packages and resources for Quants 
 - [Tai](https://github.com/fremantle-industries/tai) - `Elixir/Erlang` - Open Source composable, real time, market data and trade execution toolkit.
 - [Workbench](https://github.com/fremantle-industries/workbench) - `Elixir/Erlang` - From Idea to Execution - Manage your trading operation across a globally distributed cluster.
 - [Prop](https://github.com/fremantle-industries/prop) - `Elixir/Erlang` - An open and opinionated trading platform using productive & familiar open source libraries and tools for strategy research, execution and operation.
-- [TradeFrame](https://github.com/rburkholder/trade-frame) - `CPP` - C++ 17 based framework/library (with sample applications) for testing options based automated trading ideas using DTN IQ real time data feed and Interactive Brokers (TWS API) for trade execution. Comes with built-in [Option Greeks/IV](https://github.com/rburkholder/trade-frame/tree/master/lib/TFOptions) calculation library.
+- [TradeFrame](https://github.com/rburkholder/trade-frame) - `C++` - C++ 17 based framework/library (with sample applications) for testing options based automated trading ideas using DTN IQ real time data feed and Interactive Brokers (TWS API) for trade execution. Comes with built-in [Option Greeks/IV](https://github.com/rburkholder/trade-frame/tree/master/lib/TFOptions) calculation library.
 - [Hikyuu](https://github.com/fasiondog/hikyuu) - `Python` `C++` - A base on Python/C++ open source high-performance quant framework for faster analysis and backtesting, contains the complete trading system components for reuse and combination. You can use python or c++ freely.
-- [OrderMatchingEngine](https://github.com/PIYUSH-KUMAR1809/order-matching-engine) - `CPP` - A production-grade, lock-free, high-frequency trading matching engine achieving 150M+ orders/sec.
-- [PandoraTrader](https://github.com/pegasusTrader/PandoraTrader) - `CPP` - A C++ CTP trading framework, with very clear logic.
-- [NexusFix](https://github.com/StratCraftsAI/NexusFix) - `CPP` - C++23 FIX protocol engine with zero-copy parsing and SIMD acceleration, 3x faster than QuickFIX.
-- [TolmachЁv Netcode SDK](https://github.com/billionerleha-111/Tolmachev-Netcode-SDK) - `CPP` - Enterprise-grade deterministic state synchronization engine for MFT gateways and statistical arbitrage. Eliminates microsecond deltas locking order books via topological mathematics. Throughput >41.5M TPS, physical RTT 24.175 ns, atomic validation (0 CPU load). [Website](https://tuhct-sdk.store)
-- [QuantConnect](https://github.com/QuantConnect/Lean) - `CSharp` - Lean Engine is an open-source fully managed C# algorithmic trading engine built for desktop and cloud usage.
-- [StockSharp](https://github.com/StockSharp/StockSharp) - `CSharp` - Algorithmic trading and quantitative trading open source platform to develop trading robots (stock markets, forex, crypto, bitcoins, and options).
-- [TDAmeritrade.DotNetCore](https://github.com/NVentimiglia/TDAmeritrade.DotNetCore) - `CSharp` - Free, open-source .NET Client for the TD Ameritrade Trading Platform. Helps developers integrate TD Ameritrade API into custom trading solutions.
+- [OrderMatchingEngine](https://github.com/PIYUSH-KUMAR1809/order-matching-engine) - `C++` - A production-grade, lock-free, high-frequency trading matching engine achieving 150M+ orders/sec.
+- [PandoraTrader](https://github.com/pegasusTrader/PandoraTrader) - `C++` - A C++ CTP trading framework, with very clear logic.
+- [NexusFix](https://github.com/StratCraftsAI/NexusFix) - `C++` - C++23 FIX protocol engine with zero-copy parsing and SIMD acceleration, 3x faster than QuickFIX.
+- [TolmachЁv Netcode SDK](https://github.com/billionerleha-111/Tolmachev-Netcode-SDK) - `C++` - Enterprise-grade deterministic state synchronization engine for MFT gateways and statistical arbitrage. Eliminates microsecond deltas locking order books via topological mathematics. Throughput >41.5M TPS, physical RTT 24.175 ns, atomic validation (0 CPU load). [Website](https://tuhct-sdk.store)
+- [QuantConnect](https://github.com/QuantConnect/Lean) - `C#` - Lean Engine is an open-source fully managed C# algorithmic trading engine built for desktop and cloud usage.
+- [StockSharp](https://github.com/StockSharp/StockSharp) - `C#` - Algorithmic trading and quantitative trading open source platform to develop trading robots (stock markets, forex, crypto, bitcoins, and options).
+- [TDAmeritrade.DotNetCore](https://github.com/NVentimiglia/TDAmeritrade.DotNetCore) - `C#` - Free, open-source .NET Client for the TD Ameritrade Trading Platform. Helps developers integrate TD Ameritrade API into custom trading solutions.
 - [Barter](https://github.com/barter-rs/barter-rs) - `Rust` - Open-source Rust framework for building event-driven live-trading & backtesting systems.
 - [LFEST](https://github.com/MathisWellmann/lfest-rs) - `Rust` - Simulated perpetual futures exchange to trade your strategy against.
 - [Sextant](https://github.com/raphaub-hub/SEXTANT) - `Python` - Local event-driven backtesting engine with no-code strategy builder and FRED vintage, ALFRED, yFinance support.
@@ -361,6 +361,7 @@ A curated list of insanely awesome libraries, packages and resources for Quants 
 - [portfolio-allocation](https://github.com/lequant40/portfolio_allocation_js) - `JavaScript` - PortfolioAllocation is a JavaScript library designed to help constructing financial portfolios made of several assets: bonds, commodities, cryptocurrencies, currencies, exchange traded funds (ETFs), mutual funds, stocks...
 - [Ghostfolio](https://github.com/ghostfolio/ghostfolio) - `JavaScript` - Wealth management software to keep track of financial assets like stocks, ETFs or cryptocurrencies and make solid, data-driven investment decisions.
 - [rebalance](https://github.com/cjroth/rebalance) - `JavaScript` - Interactive portfolio rebalancing tool that imports brokerage CSV data, sets target allocations, and generates trade instructions.
+- [trafalgar](https://github.com/ssantoshp/trafalgar) - `Python` - Python library to make development of portfolio analysis faster and easier.
 
 ## Factor Analysis
 
@@ -774,8 +775,10 @@ A curated list of insanely awesome libraries, packages and resources for Quants 
 - [catalyst](https://github.com/scrtlabs/catalyst) - `Python` `Historical` - Archived crypto-asset trading engine preserving an early adaptation of Zipline for exchange backtesting and live execution.
 - [pyalgotrade](https://github.com/gbeced/pyalgotrade) - `Python` `Historical` - Archived event-driven trading library retained for studying its original backtesting broker and order-execution models.
 - [qtpylib](https://github.com/ranaroussi/qtpylib) - `Python` `Historical` - Archived trading framework retained for studying shared market-data capture and multiple-strategy execution using ZeroMQ.
+- [Stock-Prediction-Models](https://github.com/huseinzol05/Stock-Prediction-Models) - `Python` `Historical` - Archived collection of machine-learning and deep-learning stock forecasting models retained as a reference survey of prediction approaches.
 
 ## Related Lists
 
 - [awesome-sec-filings](https://github.com/vibeyclaw/awesome-sec-filings) - A curated list of tools, data sources, libraries, and resources for working with SEC filings (13F, 10-K, 10-Q, 8-K).
 - [CONVEXFI](https://github.com/convexfi) - Official GitHub organization for the convex research group at the Hong Kong University of Science and Technology (HKUST).
+- [CRAN Task View: Empirical Finance](https://cran.r-project.org/web/views/Finance.html) - The official CRAN task view cataloguing R packages for empirical finance, maintained on CRAN.
