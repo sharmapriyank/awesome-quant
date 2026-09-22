@@ -311,15 +311,19 @@ def generate_html(entries: list[dict]) -> str:
     # Generate tag cloud
     tag_cloud_html = build_tag_cloud(entries)
 
+    def safe_href(url: str) -> str:
+        scheme = url.split(":", 1)[0].lower()
+        return url if scheme in {"http", "https"} else ""
+
     # Build table rows
     rows = []
     for i, e in enumerate(entries, 1):
         esc = html.escape
         name = esc(e["project"])
-        url = esc(e["url"])
+        url = esc(safe_href(e["url"]))
         desc = esc(e["description"])
         category = esc(e.get("category", ""))
-        github_url = esc(e.get("github_url", ""))
+        github_url = esc(safe_href(e.get("github_url", "")))
         stars = int(e.get("stars", 0) or 0)
         last_commit = e.get("last_commit", "") or ""
         is_github = e.get("github", False)
@@ -369,7 +373,7 @@ def generate_html(entries: list[dict]) -> str:
             f"""      <tr class="row" data-languages="{languages_attr}" data-category="{category}" data-sources="{sources_attr}" data-stars="{stars}" tabindex="-1" aria-expanded="false">
         <td class="col-num">{i}</td>
         <td class="col-name">
-          <a href="{url}" target="_blank" rel="noopener">{name}</a>
+          {f'<a href="{url}" target="_blank" rel="noopener">{name}</a>' if url else name}
           <span class="mobile-category">{category}</span>
         </td>
         <td class="col-stars">{stars_html}</td>
@@ -384,7 +388,7 @@ def generate_html(entries: list[dict]) -> str:
           <div class="expand-content">
             <p class="expand-desc">{desc}</p>
             <div class="expand-links">
-              <a href="{url}" target="_blank" rel="noopener">{url}</a>
+              {f'<a href="{url}" target="_blank" rel="noopener">{url}</a>' if url else ''}
               {f'<a href="{github_url}" target="_blank" rel="noopener">{github_url}</a>' if github_url and github_url != url else ''}
             </div>
           </div>

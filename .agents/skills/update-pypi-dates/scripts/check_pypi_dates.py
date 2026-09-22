@@ -29,14 +29,15 @@ def get_pypi_last_updated(package_name: str) -> str | None:
         return None
 
     releases = data.get("releases", {})
-    for version in sorted(releases.keys(), reverse=True):
-        files = releases[version]
-        if not files:
-            continue
-        upload_time = files[0].get("upload_time_iso_8601")
-        if upload_time:
-            return upload_time.split("T", 1)[0]
-    return None
+    # Newest upload across all files — version keys sort lexically
+    # ("9.9" > "10.0"), so they are not a reliable ordering.
+    upload_times = [
+        file.get("upload_time_iso_8601", "")
+        for files in releases.values()
+        for file in files
+    ]
+    upload_times = [t for t in upload_times if t]
+    return max(upload_times).split("T", 1)[0] if upload_times else None
 
 
 def find_readme_entry(readme_content: str, display_name: str) -> tuple[int | None, str | None]:
