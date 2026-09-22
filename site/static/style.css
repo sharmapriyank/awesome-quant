@@ -586,6 +586,11 @@ button {
   background: var(--bg-surface-hover);
 }
 
+.row:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+
 .row.expanded .arrow {
   transform: rotate(90deg);
 }

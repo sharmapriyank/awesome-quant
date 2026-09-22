@@ -72,6 +72,38 @@ class SiteGenerateContractTests(unittest.TestCase):
         html = self.module.generate_html(entries)
         self.assertIn('data-sources="github archived"', html)
 
+    def test_rows_are_keyboard_navigable(self):
+        entries = [
+            {
+                "project": "Example",
+                "language": "Python",
+                "languages": "Python",
+                "category": "Trading & Backtesting",
+                "section_slug": "trading-backtesting",
+                "url": "https://example.com",
+                "description": "Example.",
+                "github": False,
+                "cran": False,
+                "pypi": False,
+                "commercial": False,
+                "archived": False,
+                "github_url": "",
+                "repo": "",
+                "stars": 0,
+                "last_commit": "",
+            }
+        ]
+        html = self.module.generate_html(entries)
+        self.assertIn('tabindex="-1" aria-expanded="false"', html)
+        self.assertIn('role="status" aria-live="polite"', html)
+
+        js = (ROOT / "site" / "static" / "main.js").read_text(encoding="utf-8")
+        self.assertIn("setExpanded", js)
+        self.assertIn("moveRowFocus", js)
+        self.assertIn("aria-expanded", js)
+        # Row keydown must not swallow Enter/Space on focused child elements
+        self.assertIn("e.target !== row", js)
+
 
 if __name__ == "__main__":
     unittest.main()

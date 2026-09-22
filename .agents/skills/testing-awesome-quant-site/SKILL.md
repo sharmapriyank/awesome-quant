@@ -36,7 +36,18 @@ description: How to E2E-test the awesome-quant generated static site (site/index
   Sortable th`s are keyboard-operable (tabindex=0, role=button, aria-sort): Enter/Space on a focused
   header runs the same cycle as click and sets aria-sort=ascending/descending (none on inactive).
   Tab order: search input -> tag-cloud chips (~14) -> Project th -> Stars th -> Last Update th, then
-  row links. Shift+Tab moves back between headers. :focus-visible draws a 2px accent outline.
+  the first visible row (roving tabindex), then in-row links/pills. Shift+Tab moves back between
+  headers. :focus-visible draws a 2px accent outline on th AND on .row tr.
+- Rows use roving tabindex: all render tabindex="-1" aria-expanded="false"; main.js seeds
+  rows[0].tabindex="0" at init and after each applyFilters seeds the FIRST VISIBLE row with "0"
+  only when NO visible row already has 0. Arrows/Home/End move focus between visible rows
+  (skipping hidden/expand rows); Enter/Space on a focused row = row.click() (expand/collapse).
+  #results-count has role="status" aria-live="polite" and renders "Showing N projects".
+  DEFECTS to check when re-verifying: (a) stale tabindex="0" is never cleared from hidden rows —
+  after a filter->clear->filter cycle, 2+ rows can hold "0" and the entry point ends up mid-list
+  (Tab then lands on the first in-row link, not a row); (b) Enter/Space while focus is on an
+  in-row pill/link expands the row instead of activating the control (keydown uses
+  closest('.row') -> row.click() + preventDefault).
 - Row click expands an accordion (one open at a time) showing description + URL; clicks on tags/links
   inside a row do NOT expand.
 - Theme toggle sets `<html data-theme>` and persists via localStorage `theme` (per-origin! a different

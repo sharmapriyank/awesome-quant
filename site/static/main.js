@@ -49,12 +49,35 @@
     return row.nextElementSibling;
   }
 
+  function setExpanded(row, expanded) {
+    row.classList.toggle("expanded", expanded);
+    row.setAttribute("aria-expanded", expanded ? "true" : "false");
+    const expand = getExpandRow(row);
+    if (expand) expand.hidden = !expanded;
+  }
+
   function collapseAll() {
-    for (const row of getRows()) {
-      row.classList.remove("expanded");
-      const expand = getExpandRow(row);
-      if (expand) expand.hidden = true;
-    }
+    for (const row of getRows()) setExpanded(row, false);
+  }
+
+  function visibleRows() {
+    return getRows().filter((r) => !r.hidden);
+  }
+
+  function moveRowFocus(current, dir) {
+    const rows = visibleRows();
+    if (!rows.length) return;
+    const idx = rows.indexOf(current);
+    const next =
+      dir === "first"
+        ? rows[0]
+        : dir === "last"
+          ? rows[rows.length - 1]
+          : rows[Math.min(Math.max(idx + dir, 0), rows.length - 1)];
+    if (!next) return;
+    if (current && current !== next) current.setAttribute("tabindex", "-1");
+    next.setAttribute("tabindex", "0");
+    next.focus();
   }
 
   // ===== Search & Filter =====
@@ -92,6 +115,7 @@
       }
 
       row.hidden = !show;
+      if (!show) row.setAttribute("tabindex", "-1");
       if (expand) expand.hidden = true;
 
       if (show) {
@@ -99,6 +123,12 @@
         const numCell = $(".col-num", row);
         if (numCell) numCell.textContent = visible;
       }
+    }
+
+    // Keep a tab entry point on a visible row (roving tabindex)
+    const vr = visibleRows();
+    if (vr.length && !vr.some((r) => r.getAttribute("tabindex") === "0")) {
+      vr[0].setAttribute("tabindex", "0");
     }
 
     noResults.hidden = visible > 0;
@@ -168,29 +198,29 @@
     const isExpanded = row.classList.contains("expanded");
 
     for (const r of getRows()) {
-      if (r !== row) {
-        r.classList.remove("expanded");
-        const ex = getExpandRow(r);
-        if (ex) ex.hidden = true;
-      }
+      if (r !== row) setExpanded(r, false);
     }
-
-    if (isExpanded) {
-      row.classList.remove("expanded");
-      expand.hidden = true;
-    } else {
-      row.classList.add("expanded");
-      expand.hidden = false;
-    }
+    setExpanded(row, !isExpanded);
   });
 
   tableBody.addEventListener("keydown", (e) => {
+    const row = e.target.closest(".row");
+    if (!row || e.target !== row) return;
     if (e.key === "Enter" || e.key === " ") {
-      const row = e.target.closest(".row");
-      if (row) {
-        e.preventDefault();
-        row.click();
-      }
+      e.preventDefault();
+      row.click();
+    } else if (e.key === "ArrowDown") {
+      e.preventDefault();
+      moveRowFocus(row, 1);
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      moveRowFocus(row, -1);
+    } else if (e.key === "Home") {
+      e.preventDefault();
+      moveRowFocus(row, "first");
+    } else if (e.key === "End") {
+      e.preventDefault();
+      moveRowFocus(row, "last");
     }
   });
 
@@ -281,8 +311,10 @@
     });
   }
 
-  // Store original indices
+  // Store original indices; seed the roving-tabindex entry point
   getRows().forEach((r, i) => (r.dataset.originalIndex = i));
+  const firstRow = getRows()[0];
+  if (firstRow) firstRow.setAttribute("tabindex", "0");
 
   // ===== Keyboard Shortcuts =====
   document.addEventListener("keydown", (e) => {
