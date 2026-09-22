@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-"""
-Check PyPI projects for last updated dates and update README.md entries.
-"""
+"""Check tracked PyPI projects and update README.md last-updated notes."""
+
+from __future__ import annotations
 
 import json
 import re
@@ -9,7 +9,6 @@ import sys
 from pathlib import Path
 from urllib.request import urlopen
 
-# PyPI projects to track
 PYPI_PROJECTS = {
     "qfrm": "qfrm",
     "chinesestockapi": "chinesestockapi",
@@ -17,135 +16,96 @@ PYPI_PROJECTS = {
     "metatrader5": "MetaTrader5",
 }
 
-README_PATH = Path(__file__).parent.parent.parent.parent.parent / "README.md"
+README_PATH = Path(__file__).resolve().parents[4] / "README.md"
 
 
 def get_pypi_last_updated(package_name: str) -> str | None:
-    """
-    Fetch the last updated date for a PyPI package.
-
-    Returns: date string in format "YYYY-MM-DD" or None if not found
-    """
+    url = f"https://pypi.org/pypi/{package_name}/json"
     try:
-        url = f"https://pypi.org/pypi/{package_name}/json"
-        with urlopen(url, timeout=5) as response:
-            data = json.loads(response.read().decode())
-
-        # Get releases (ordered dict, latest first after sorting)
-        releases = data.get("releases", {})
-        if not releases:
-            return None
-
-        # Find the latest release with upload time
-        for version in sorted(releases.keys(), reverse=True):
-            release_data = releases[version]
-            if release_data and len(release_data) > 0:
-                upload_time = release_data[0].get("upload_time_iso_8601")
-                if upload_time:
-                    # Extract just the date part (YYYY-MM-DD)
-                    return upload_time.split("T")[0]
-
-        return None
-    except Exception as e:
-        print(f"  ❌ Error fetching {package_name}: {e}", file=sys.stderr)
+        with urlopen(url, timeout=10) as response:
+            data = json.loads(response.read().decode("utf-8"))
+    except Exception as exc:
+        print(f"ERROR fetching {package_name}: {exc}", file=sys.stderr)
         return None
 
+    releases = data.get("releases", {})
+    for version in sorted(releases.keys(), reverse=True):
+        files = releases[version]
+        if not files:
+            continue
+        upload_time = files[0].get("upload_time_iso_8601")
+        if upload_time:
+            return upload_time.split("T", 1)[0]
+    return None
 
-def find_readme_entry(readme_content: str, package_display_name: str) -> tuple[int | None, str | None]:
-    """
-    Find a README entry for a package.
 
-    Returns: (line_number, match_text) or (None, None)
-    """
-    # Pattern to match the entry - look for [package_name](pypi.org...)
-    pattern = rf"\- \[{re.escape(package_display_name)}\]\(https://pypi\.org/project/\w+/\)[^\n]*"
-
-    for line_num, line in enumerate(readme_content.split("\n"), 1):
+def find_readme_entry(readme_content: str, display_name: str) -> tuple[int | None, str | None]:
+    pattern = rf"- \[{re.escape(display_name)}\]\(https://pypi\.org/project/[\w.-]+/\)[^\n]*"
+    for line_num, line in enumerate(readme_content.splitlines(), 1):
         if re.search(pattern, line):
-            return line_num, line.strip()
-
+            return line_num, line
     return None, None
 
 
-def update_readme_entry(readme_content: str, package_display_name: str, new_date: str) -> tuple[str, bool]:
-    """
-    Update or add the last updated date to a README entry.
-
-    Returns: (updated_content, was_changed)
-    """
-    lines = readme_content.split("\n")
-    line_num, _entry_text = find_readme_entry(readme_content, package_display_name)
-
-    if line_num is None:
+def update_readme_entry(readme_content: str, display_name: str, new_date: str) -> tuple[str, bool]:
+    lines = readme_content.splitlines()
+    line_num, entry = find_readme_entry(readme_content, display_name)
+    if line_num is None or entry is None:
+        print(f"WARN {display_name}: README entry not found")
         return readme_content, False
 
     old_line = lines[line_num - 1]
-
-    # Check if entry already has a date
+    new_date_text = f"(Last updated: {new_date})"
     existing_date_pattern = r"\(Last updated: \d{4}-\d{2}-\d{2}\)"
-    existing_match = re.search(existing_date_pattern, old_line)
 
-    if existing_match:
-        old_date = existing_match.group(0)
-        new_date_str = f"(Last updated: {new_date})"
-        if old_date == new_date_str:
-            return readme_content, False  # No change needed
-        new_line = old_line.replace(old_date, new_date_str)
+    if re.search(existing_date_pattern, old_line):
+        new_line = re.sub(existing_date_pattern, new_date_text, old_line)
+    elif old_line.endswith("."):
+        new_line = old_line[:-1] + f" {new_date_text}."
     else:
-        # Add date to the end of the entry (before period if present)
-        if old_line.endswith("."):
-            new_line = old_line[:-1] + f" (Last updated: {new_date})."
-        else:
-            new_line = old_line + f" (Last updated: {new_date})"
+        new_line = old_line + f" {new_date_text}"
+
+    if new_line == old_line:
+        return readme_content, False
 
     lines[line_num - 1] = new_line
-    return "\n".join(lines), True
+    trailing_newline = "\n" if readme_content.endswith("\n") else ""
+    return "\n".join(lines) + trailing_newline, True
 
 
-def main():
-    """Check PyPI projects and update README.md."""
+def main() -> int:
     if not README_PATH.exists():
-        print(f"❌ README.md not found at {README_PATH}")
-        sys.exit(1)
+        print(f"ERROR README.md not found at {README_PATH}", file=sys.stderr)
+        return 1
 
     readme_content = README_PATH.read_text(encoding="utf-8")
     updated_content = readme_content
-    changes_made = []
+    changes: list[tuple[str, str]] = []
 
-    print("📦 Checking PyPI projects for last updated dates...\n")
-
-    for display_name, pypi_name in PYPI_PROJECTS.items():
-        print(f"Checking {display_name}...")
-
-        last_updated = get_pypi_last_updated(pypi_name)
+    print("Checking PyPI projects for last-updated dates...")
+    for display_name, package_name in PYPI_PROJECTS.items():
+        last_updated = get_pypi_last_updated(package_name)
         if last_updated is None:
-            print("  ⚠️  Could not find last updated date")
+            print(f"{display_name}: skipped")
             continue
 
-        updated_content, was_changed = update_readme_entry(
-            updated_content, display_name, last_updated
-        )
-
-        if was_changed:
-            print(f"  ✅ Updated to {last_updated}")
-            changes_made.append((display_name, last_updated))
+        updated_content, changed = update_readme_entry(updated_content, display_name, last_updated)
+        if changed:
+            changes.append((display_name, last_updated))
+            print(f"{display_name}: updated to {last_updated}")
         else:
-            print(f"  ✓ {last_updated} (no change)")
+            print(f"{display_name}: {last_updated} (no change)")
 
-    print()
-
-    if changes_made:
-        print(f"📝 Found {len(changes_made)} update(s):")
-        for pkg_name, date in changes_made:
-            print(f"  - {pkg_name}: {date}")
-
+    if changes:
         README_PATH.write_text(updated_content, encoding="utf-8")
-        print(f"\n✅ Updated {README_PATH.name}")
-        return 0
+        print("Updated README.md:")
+        for name, date in changes:
+            print(f"- {name}: {date}")
     else:
-        print("✓ All packages up to date!")
-        return 0
+        print("All tracked PyPI dates are current.")
+
+    return 0
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    raise SystemExit(main())
