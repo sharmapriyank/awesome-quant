@@ -370,7 +370,7 @@ def generate_html(entries: list[dict]) -> str:
         tags_html = build_tags_html(e)
 
         rows.append(
-            f"""      <tr class="row" data-languages="{languages_attr}" data-category="{category}" data-sources="{sources_attr}" data-stars="{stars}">
+            f"""      <tr class="row" data-languages="{languages_attr}" data-category="{category}" data-sources="{sources_attr}" data-stars="{stars}" tabindex="-1" aria-expanded="false">
         <td class="col-num">{i}</td>
         <td class="col-name">
           <a href="{url}" target="_blank" rel="noopener">{name}</a>
@@ -482,7 +482,7 @@ def generate_html(entries: list[dict]) -> str:
           <p>No projects match your search.</p>
         </div>
 
-        <div class="results-count" id="results-count"></div>
+        <div class="results-count" id="results-count" role="status" aria-live="polite"></div>
       </div>
     </section>
 
