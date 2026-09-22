@@ -33,6 +33,10 @@ description: How to E2E-test the awesome-quant generated static site (site/index
 - Tag-cloud chips and in-row tag pills apply a single active filter (new chip replaces, same chip
   toggles off, "Clear filter" resets). Match counts against CSV group counts.
 - Sort headers: name cycles asc->desc->default; stars/update cycle desc->asc (never reset to default).
+  Sortable th`s are keyboard-operable (tabindex=0, role=button, aria-sort): Enter/Space on a focused
+  header runs the same cycle as click and sets aria-sort=ascending/descending (none on inactive).
+  Tab order: search input -> tag-cloud chips (~14) -> Project th -> Stars th -> Last Update th, then
+  row links. Shift+Tab moves back between headers. :focus-visible draws a 2px accent outline.
 - Row click expands an accordion (one open at a time) showing description + URL; clicks on tags/links
   inside a row do NOT expand.
 - Theme toggle sets `<html data-theme>` and persists via localStorage `theme` (per-origin! a different

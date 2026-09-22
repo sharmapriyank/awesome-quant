@@ -240,31 +240,44 @@
     applyFilters();
   }
 
+  function activateSort(th) {
+    const key = th.dataset.sort;
+
+    let nextDir;
+    if (currentSort.key !== key) {
+      nextDir = key === "name" ? "asc" : "desc";
+    } else if (currentSort.dir === "asc") {
+      nextDir = "desc";
+    } else if (currentSort.dir === "desc") {
+      nextDir = key === "name" ? "" : "asc";
+    } else {
+      nextDir = key === "name" ? "asc" : "desc";
+    }
+
+    for (const h of sortHeaders) {
+      h.classList.remove("asc", "desc");
+      h.setAttribute("aria-sort", "none");
+    }
+
+    if (nextDir) {
+      th.classList.add(nextDir);
+      th.setAttribute(
+        "aria-sort",
+        nextDir === "asc" ? "ascending" : "descending"
+      );
+    }
+
+    currentSort = { key: nextDir ? key : "", dir: nextDir };
+    doSort(key, nextDir);
+  }
+
   for (const th of sortHeaders) {
-    th.addEventListener("click", () => {
-      const key = th.dataset.sort;
-
-      let nextDir;
-      if (currentSort.key !== key) {
-        nextDir = key === "name" ? "asc" : "desc";
-      } else if (currentSort.dir === "asc") {
-        nextDir = "desc";
-      } else if (currentSort.dir === "desc") {
-        nextDir = key === "name" ? "" : "asc";
-      } else {
-        nextDir = key === "name" ? "asc" : "desc";
+    th.addEventListener("click", () => activateSort(th));
+    th.addEventListener("keydown", (e) => {
+      if (e.key === "Enter" || e.key === " ") {
+        e.preventDefault();
+        activateSort(th);
       }
-
-      for (const h of sortHeaders) {
-        h.classList.remove("asc", "desc");
-      }
-
-      if (nextDir) {
-        th.classList.add(nextDir);
-      }
-
-      currentSort = { key: nextDir ? key : "", dir: nextDir };
-      doSort(key, nextDir);
     });
   }
 

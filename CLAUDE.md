@@ -24,7 +24,6 @@ The pipeline works as follows:
 4. **CI** (`ci/workflows/build.yml`, workflow name "Update site") — Runs daily (cron `0 1 * * *`) and on push to `master` touching `README.md`, `parse.py`, or `site/**`. Workflows are vendored under `ci/workflows/` (see `ci/README.md` to activate; `.github/workflows/` pushes need the OAuth `workflow` scope): runs `parse.py`, runs `site/generate.py`, and deploys the `site/` directory to GitHub Pages via `peaceiris/actions-gh-pages`.
 
 Supporting scripts:
-- `cranscrape.py` — Scrapes CRAN package pages to find associated GitHub repos; writes `cran.csv`.
 - `topic.py` — Searches GitHub for repos tagged with a topic (e.g., "quant") above a star threshold.
 - `scripts/migrate_readme.py` — One-off migration that converted `README.md` from language-first to category-first organization (kept for reference).
 
