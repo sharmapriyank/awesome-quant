@@ -333,8 +333,8 @@ def generate_html(entries: list[dict]) -> str:
         is_commercial = e.get("commercial", False)
         is_archived = bool(e.get("archived"))
 
-        # Languages attribute (space-separated)
-        languages_attr = esc(" ".join(
+        # Languages attribute (|-separated: tags may contain spaces)
+        languages_attr = esc("|".join(
             l.strip() for l in e.get("languages", e.get("language", "")).split(",") if l.strip()
         ))
 

@@ -57,6 +57,11 @@ description: How to E2E-test the awesome-quant generated static site (site/index
 - Expected star counts/dates come from projects.csv — verify sort assertions against the CSV
   (`csv.DictReader`, sort by `stars`), not memory. Same for filter counts: group the CSV by
   category/languages/source flags first, then assert the exact "Showing N projects" text.
+  When counting tag pills in index.html instead, remember the tag-cloud emits ONE extra pill
+  for each of its ~14 chips — grep counts can be off-by-one vs actual row counts; CSV is truth.
+- `data-languages` is `|`-separated (multi-language rows + tags containing spaces like "Pine
+  Script", "SEC EDGAR"). main.js splits on `|`. If you ever see space-joined values resurface,
+  spaced-tag pill clicks will silently match 0 rows — that's the regression signature.
 - The hero uses a dark navy background in BOTH themes — judge dark mode by the content/table area, not
   the hero.
 - Pressing End/Home while the search input is focused edits the text, not the page — Escape (or click

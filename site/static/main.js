@@ -73,7 +73,7 @@
         " " +
         (expand ? expand.textContent : "")
       ).toLowerCase();
-      const languages = (row.dataset.languages || "").split(" ");
+      const languages = (row.dataset.languages || "").split("|").filter(Boolean);
       const category = row.dataset.category || "";
       const sources = row.dataset.sources || "";
 
