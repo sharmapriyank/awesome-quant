@@ -103,6 +103,10 @@ class SiteGenerateContractTests(unittest.TestCase):
         self.assertIn("aria-expanded", js)
         # Row keydown must not swallow Enter/Space on focused child elements
         self.assertIn("e.target !== row", js)
+        # filter_type must be allowlisted (crafted ?filter_type= must not lie)
+        self.assertIn("FILTER_TYPES", js)
+        # Roving entry point recomputed every filter pass, not just seeded
+        self.assertIn('for (const r of getRows()) r.setAttribute("tabindex", "-1")', js)
 
     def _entry(self, **overrides):
         entry = {

@@ -43,11 +43,17 @@ description: How to E2E-test the awesome-quant generated static site (site/index
   only when NO visible row already has 0. Arrows/Home/End move focus between visible rows
   (skipping hidden/expand rows); Enter/Space on a focused row = row.click() (expand/collapse).
   #results-count has role="status" aria-live="polite" and renders "Showing N projects".
-  DEFECTS to check when re-verifying: (a) stale tabindex="0" is never cleared from hidden rows —
-  after a filter->clear->filter cycle, 2+ rows can hold "0" and the entry point ends up mid-list
-  (Tab then lands on the first in-row link, not a row); (b) Enter/Space while focus is on an
-  in-row pill/link expands the row instead of activating the control (keydown uses
-  closest('.row') -> row.click() + preventDefault).
+  DEFECTS to check when re-verifying: (a) stale tabindex="0" — FIXED for hidden rows (applyFilters
+  writes -1) but STILL BROKEN for a stale 0 on a row that stays VISIBLE: search "?q=backtrader" ->
+  clear -> T&B chip leaves backtrader holding 0 at mid-list (#40), the reseed check
+  `vr.some(tabindex==='0')` sees it and skips, so Tab enters on Crypto Pump Scanner's LINK not a
+  row. Repro signature: query `[...document.querySelectorAll('tbody tr.row')].filter(r=>!r.hidden
+  && r.getAttribute('tabindex')==='0')` — if it's not the first visible row, the bug persists;
+  (b) FIXED: Enter/Space on in-row pill now applies its filter (guard `e.target !== row`) —
+  verify by focusing a pill via Tab and pressing Enter: URL gains the pill's filter param;
+  (c) unknown filter_type via URL (e.g. `?filter_type=<svg>&filter=Python`) skips ALL filter
+  checks -> shows all rows while the bar claims "Filtered by: X" (logic gap, not XSS — value
+  renders via textContent).
 - Row click expands an accordion (one open at a time) showing description + URL; clicks on tags/links
   inside a row do NOT expand.
 - Theme toggle sets `<html data-theme>` and persists via localStorage `theme` (per-origin! a different

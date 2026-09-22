@@ -15,6 +15,8 @@
   const sortHeaders = $$("th[data-sort]");
   const allTags = $$("button.tag");
 
+  const FILTER_TYPES = new Set(["language", "category", "source"]);
+
   let activeFilter = { type: "", value: "" };
   let currentSort = { key: "", dir: "" };
 
@@ -106,8 +108,8 @@
       // Search
       if (query && !text.includes(query)) show = false;
 
-      // Tag filter
-      if (show && activeFilter.value) {
+      // Tag filter (unknown types filter nothing and show no bar)
+      if (show && activeFilter.value && FILTER_TYPES.has(activeFilter.type)) {
         const ft = activeFilter.type;
         const fv = activeFilter.value;
         if (ft === "language" && !languages.includes(fv)) show = false;
@@ -126,11 +128,11 @@
       }
     }
 
-    // Keep a tab entry point on a visible row (roving tabindex)
+    // Recompute the roving-tabindex entry point every pass: stale "0"
+    // values on surviving rows would otherwise bury it mid-list.
+    for (const r of getRows()) r.setAttribute("tabindex", "-1");
     const vr = visibleRows();
-    if (vr.length && !vr.some((r) => r.getAttribute("tabindex") === "0")) {
-      vr[0].setAttribute("tabindex", "0");
-    }
+    if (vr.length) vr[0].setAttribute("tabindex", "0");
 
     noResults.hidden = visible > 0;
     resultsCount.textContent =
@@ -138,9 +140,14 @@
         ? `Showing ${visible} project${visible !== 1 ? "s" : ""}`
         : "";
 
+    const filtering = Boolean(
+      activeFilter.value && FILTER_TYPES.has(activeFilter.type)
+    );
+
     // Sync pressed state on every filter tag
     for (const tag of allTags) {
       const active =
+        filtering &&
         tag.dataset.filterType === activeFilter.type &&
         tag.dataset.filterValue === activeFilter.value;
       tag.classList.toggle("active", active);
@@ -148,7 +155,7 @@
     }
 
     // Sync filter bar
-    if (activeFilter.value) {
+    if (filtering) {
       filterValue.textContent = activeFilter.value;
       filterBar.style.display = "flex";
     } else {
@@ -373,10 +380,10 @@
     const params = new URLSearchParams(location.search);
     if (params.has("q")) searchInput.value = params.get("q");
     if (params.has("filter")) {
-      activeFilter = {
-        type: params.get("filter_type") || "category",
-        value: params.get("filter"),
-      };
+      const type = params.get("filter_type") || "category";
+      activeFilter = FILTER_TYPES.has(type)
+        ? { type, value: params.get("filter") }
+        : { type: "", value: "" };
     }
     if (params.toString()) applyFilters();
   }
