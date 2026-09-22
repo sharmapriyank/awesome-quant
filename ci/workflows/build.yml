@@ -1,0 +1,40 @@
+name: Update site
+
+on:
+  schedule:
+    - cron: "0 1 * * *"
+  push:
+    branches: [ master ]
+    paths:
+      - 'README.md'
+      - 'parse.py'
+      - 'site/**'
+
+concurrency:
+  group: build-and-deploy
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    - uses: astral-sh/setup-uv@v6
+    - uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+    - name: Install dependencies
+      run: |
+        uv sync --no-install-project
+    - name: Run parser
+      run: |
+        export GITHUB_ACCESS_TOKEN=${{ secrets.GITHUB_TOKEN }}
+        uv run python parse.py
+    - name: Generate site
+      run: |
+        uv run python site/generate.py
+    - name: Deploy pages
+      uses: peaceiris/actions-gh-pages@v3
+      with:
+        github_token: ${{ secrets.GITHUB_TOKEN }}
+        publish_dir: site
