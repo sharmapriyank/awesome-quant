@@ -51,6 +51,21 @@ description: How to E2E-test the awesome-quant generated static site (site/index
   in-row pill applies its filter (guard `e.target !== row`); (c) unknown filter_type via URL is
   discarded by a FILTER_TYPES allowlist (language/category/source) — `?filter_type=<svg>&filter=X`
   yields bar display:none, 0 pressed/active, all rows, AND syncURL cleans the URL to bare `/`.
+- Hardening wave (PR #15, verified): (a) sticky thead — `position:sticky` is on THEAD (not th);
+  `.table-wrap` uses `overflow:hidden; overflow:clip` — clip does NOT create a scroll container so
+  thead sticks to page scroll (pinned top:0 even at row 117+). (b) Sort empties-last: `update` cells
+  may be EMPTY (77 rows: statistics, rmetrics, CRAN Task View…); comparator sinks "" to bottom in
+  EITHER direction ("unknown is not oldest") — verify trailing-empty count, not just last row.
+  `data-stars` is numeric on all rows (missing→0). (c) name sort reads `row.dataset.name` ONLY —
+  covers linkless rows (unsafe-scheme URLs render plain text; none exist in current data — probe by
+  stripping an <a> in DOM then re-sorting). (d) filter matching is case-insensitive BOTH sides, BUT
+  pressed-state + toggle-off use raw `===`: `?filter=python` filters correctly yet the chip shows
+  aria-pressed=false (known minor gap — bar text echoes raw case). syncURL strips untracked params.
+- TESTING GOTCHAS: Chrome omnibox inline-autocompletes typed URLs to history CASE-INSENSITIVELY —
+  to load a verbatim case-variant like `?filter=python`, prepend a unique buster (`?zzz=9&…`) so no
+  history prefix matches, else you silently test the wrong URL. The live viewport is 1600 CSS px vs
+  1024-px screenshot space (scale ≈0.64): clicking the header's VISIBLE text spot can miss the th —
+  compute click coords from `th.getBoundingClientRect()`×scale or use Tab→th→Enter for sorting.
 - Row click expands an accordion (one open at a time) showing description + URL; clicks on tags/links
   inside a row do NOT expand.
 - Theme toggle sets `<html data-theme>` and persists via localStorage `theme` (per-origin! a different
