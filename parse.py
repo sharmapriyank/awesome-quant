@@ -218,14 +218,15 @@ def get_pypi_last_updated(url):
         if not releases:
             return ""
 
-        # Find the latest release with an upload time
-        for version in sorted(releases.keys(), reverse=True):
-            release_data = releases[version]
-            if release_data:
-                upload_time = release_data[0].get("upload_time_iso_8601")
-                if upload_time:
-                    return upload_time.split("T")[0]
-        return ""
+        # Newest upload across all files — release keys sort lexically
+        # ("9.9" > "10.0"), so they are not a reliable ordering.
+        upload_times = [
+            file.get("upload_time_iso_8601", "")
+            for release_data in releases.values()
+            for file in release_data
+        ]
+        upload_times = [t for t in upload_times if t]
+        return max(upload_times).split("T")[0] if upload_times else ""
     except Exception as e:
         print(f"PYPI ERROR {url}: {e}")
         return ""
@@ -374,6 +375,10 @@ def main():
 
     for p in projects:
         p.join()
+
+    missing = [p for p in projects if p.regs is None]
+    if missing:
+        raise SystemExit(f"{len(missing)} project(s) failed to produce data")
 
     projects = [p.regs for p in projects]
     df = pd.DataFrame(projects)
