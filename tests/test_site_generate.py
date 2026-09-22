@@ -111,6 +111,8 @@ class SiteGenerateContractTests(unittest.TestCase):
         self.assertIn("row.dataset.name", js)
         # Missing sort values sink to the bottom in both directions
         self.assertIn('return va === "" ? 1 : -1;', js)
+        # URL filter value canonicalized to data casing so pressed-state syncs
+        self.assertIn("canonicalFilterValue(type, value)", js)
 
     def test_row_carries_sortable_data_name_and_table_label(self):
         html = self.module.generate_html([self._entry(project="Widget Kit")])

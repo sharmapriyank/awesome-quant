@@ -395,6 +395,23 @@
     }
   });
 
+  // Canonicalize a URL-supplied filter value to the casing used in the data,
+  // so aria-pressed sync and chip toggle-off work regardless of URL case.
+  function canonicalFilterValue(type, value) {
+    const lv = value.toLowerCase();
+    for (const row of getRows()) {
+      const vals =
+        type === "language"
+          ? row.dataset.languages.split("|")
+          : type === "source"
+            ? row.dataset.sources.split(" ")
+            : [row.dataset.category];
+      const hit = vals.find((v) => v.toLowerCase() === lv);
+      if (hit) return hit;
+    }
+    return value;
+  }
+
   // ===== URL State =====
   function syncURL() {
     const params = new URLSearchParams();
@@ -413,9 +430,11 @@
     if (params.has("q")) searchInput.value = params.get("q");
     if (params.has("filter")) {
       const type = params.get("filter_type") || "category";
-      activeFilter = FILTER_TYPES.has(type)
-        ? { type, value: params.get("filter") }
-        : { type: "", value: "" };
+      const value = params.get("filter") || "";
+      activeFilter =
+        FILTER_TYPES.has(type) && value
+          ? { type, value: canonicalFilterValue(type, value) }
+          : { type: "", value: "" };
     }
     if (params.toString()) applyFilters();
   }
