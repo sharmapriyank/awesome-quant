@@ -380,10 +380,8 @@ def main():
                     if len(hrs) == 2 and title != "Contents":
                         current_category = title
 
-    while True:
-        checks = [not p.is_alive() for p in projects]
-        if all(checks):
-            break
+    for p in projects:
+        p.join()
 
     projects = [p.regs for p in projects]
     df = pd.DataFrame(projects)
