@@ -118,7 +118,7 @@ def get_repo_info_scrape(repo):
 
 
 def extract_repo(url):
-    reu = re.compile(r"^https://github.com/([\w-]+/[-\w\.]+)$")
+    reu = re.compile(r"^https://github\.com/([\w-]+/[-\w\.]+?)/?(?:\.git)?$")
     m = reu.match(url)
     if m:
         return m.group(1)
