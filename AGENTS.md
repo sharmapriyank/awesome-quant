@@ -17,8 +17,10 @@ languages, but may also identify runtimes, protocols, interfaces, data types, or
    `site/projects.csv`.
 3. `site/generate.py` reads `site/projects.csv` when present, otherwise parses
    `README.md` directly for local previews, then writes `site/index.html`.
-4. `.github/workflows/build.yml` runs the parser and generator, then deploys
-   `site/` to GitHub Pages.
+4. The `build` workflow runs the parser and generator, then deploys `site/`
+   to GitHub Pages. Workflow files are vendored under `ci/workflows/` (not
+   `.github/workflows/` — pushes there need the OAuth `workflow` scope);
+   see `ci/README.md` to activate them.
 
 ## Work Tracking and Planning
 

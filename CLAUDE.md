@@ -21,7 +21,7 @@ The pipeline works as follows:
 
 3. **`site/generate.py`** — Reads `site/projects.csv` (or parses `README.md` directly) and generates a static HTML site (`site/index.html`) with search, filtering by language/category/source, sorting, and dark mode. Front-end assets live in `site/static/` (`main.js`, `style.css`).
 
-4. **CI** (`.github/workflows/build.yml`, workflow name "Update site") — Runs daily (cron `0 1 * * *`) and on push to `main` touching `README.md`, `parse.py`, or `site/**`: runs `parse.py`, runs `site/generate.py`, and deploys the `site/` directory to GitHub Pages via `peaceiris/actions-gh-pages`.
+4. **CI** (`ci/workflows/build.yml`, workflow name "Update site") — Runs daily (cron `0 1 * * *`) and on push to `master` touching `README.md`, `parse.py`, or `site/**`. Workflows are vendored under `ci/workflows/` (see `ci/README.md` to activate; `.github/workflows/` pushes need the OAuth `workflow` scope): runs `parse.py`, runs `site/generate.py`, and deploys the `site/` directory to GitHub Pages via `peaceiris/actions-gh-pages`.
 
 Supporting scripts:
 - `cranscrape.py` — Scrapes CRAN package pages to find associated GitHub repos; writes `cran.csv`.
