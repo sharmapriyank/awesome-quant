@@ -107,6 +107,27 @@ class SiteGenerateContractTests(unittest.TestCase):
         self.assertIn("FILTER_TYPES", js)
         # Roving entry point recomputed every filter pass, not just seeded
         self.assertIn('for (const r of getRows()) r.setAttribute("tabindex", "-1")', js)
+        # Name sort must work for rows without a link (unsafe URL schemes)
+        self.assertIn("row.dataset.name", js)
+        # Missing sort values sink to the bottom in both directions
+        self.assertIn('return va === "" ? 1 : -1;', js)
+        # URL filter value canonicalized to data casing so pressed-state syncs
+        self.assertIn("canonicalFilterValue(type, value)", js)
+
+    def test_row_carries_sortable_data_name_and_table_label(self):
+        html = self.module.generate_html([self._entry(project="Widget Kit")])
+        self.assertIn('data-name="widget kit"', html)
+        self.assertIn('aria-label="Quantitative finance projects"', html)
+
+    def test_preview_parse_matches_shared_parser(self):
+        # Preview mode must parse the same entries as the CSV pipeline.
+        preview = self.module.parse_readme(str(ROOT / "README.md"))
+        self.assertGreater(len(preview), 600)
+        for entry in preview[:25]:
+            self.assertIn("project", entry)
+            self.assertIn("section_slug", entry)
+            self.assertTrue(entry["section_slug"])
+            self.assertNotIn("`", entry["description"][:40])
 
     def _entry(self, **overrides):
         entry = {

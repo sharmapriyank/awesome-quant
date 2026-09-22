@@ -17,7 +17,7 @@ The pipeline works as follows:
    - Language is identified via inline backtick tags (e.g., `` `Python` ``, `` `Rust` ``) in the description
    - Multi-language projects have multiple tags (e.g., `` `Python` `Rust` ``)
 
-2. **`parse.py`** — Parses `README.md`, extracts language from backtick tags, fetches last commit dates and stars via the GitHub API (using `PyGithub` with multithreading), and writes `site/projects.csv` with a `languages` column (comma-separated).
+2. **`parse.py`** — Parses `README.md`, extracts language from backtick tags, and fetches last-commit dates, stars, and archived flags via the GitHub API when `GITHUB_ACCESS_TOKEN` is set — otherwise via a token-free GitHub/CRAN/PyPI scrape fallback (bounded thread pool) — then writes `site/projects.csv` with a `languages` column (comma-separated).
 
 3. **`site/generate.py`** — Reads `site/projects.csv` (or parses `README.md` directly) and generates a static HTML site (`site/index.html`) with search, filtering by language/category/source, sorting, and dark mode. Front-end assets live in `site/static/` (`main.js`, `style.css`).
 
@@ -33,7 +33,7 @@ Supporting scripts:
 # Install dependencies (uses uv, requires Python 3.11+)
 uv sync --no-install-project
 
-# Run the parser (requires GITHUB_ACCESS_TOKEN env var)
+# Run the parser (GITHUB_ACCESS_TOKEN optional — falls back to page scraping)
 GITHUB_ACCESS_TOKEN=<token> uv run python parse.py
 
 # Generate the static site

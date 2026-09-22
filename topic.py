@@ -1,29 +1,17 @@
-
 import os
 import sys
 
-from github import Github
+from github import Auth, Github
 
 # using an access token (GitHub's search API has no anonymous tier)
 token = os.environ.get("GITHUB_ACCESS_TOKEN")
 if not token:
     sys.exit("GITHUB_ACCESS_TOKEN is required to run topic.py")
 
-g = Github(token)
+g = Github(auth=Auth.Token(token))
 
-# ts = g.search_topics('trading')
-
-# for t in ts:
-#     print(t)
-
-# t = ts[0]
-# print(t)
-# print(t.name)
-# print(t.updated_at)
-# print(t.score)
-
-topic = 'quant'
-repos = g.search_repositories(query=f'topic:{topic}')
+topic = "quant"
+repos = g.search_repositories(query=f"topic:{topic}")
 for repo in repos:
     if repo.stargazers_count < 1000:
         break
