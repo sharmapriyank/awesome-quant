@@ -434,7 +434,10 @@ button {
 .table-wrap {
   border: 1px solid var(--border);
   border-radius: var(--radius);
+  /* clip (not hidden) keeps the sticky thead working — overflow:hidden
+     creates a scroll container so top:0 sticks to the wrap, not the viewport */
   overflow: hidden;
+  overflow: clip;
 }
 
 .table {
@@ -754,7 +757,7 @@ button {
 .tag-lang[data-filter-value="C++"] { background: #00599C; color: #fff; border: 1px solid rgba(0, 89, 156, 0.3); }
 .tag-lang[data-filter-value="C#"] { background: #68217A; color: #fff; border: 1px solid rgba(104, 33, 122, 0.3); }
 .tag-lang[data-filter-value="Java"] { background: #ED8B00; color: #fff; border: 1px solid rgba(237, 139, 0, 0.3); }
-.tag-lang[data-filter-value="Golang"] { background: #00ADD8; color: #fff; border: 1px solid rgba(0, 173, 216, 0.3); }
+.tag-lang[data-filter-value="Go"] { background: #00ADD8; color: #fff; border: 1px solid rgba(0, 173, 216, 0.3); }
 .tag-lang[data-filter-value="Haskell"] { background: #5D4F85; color: #fff; border: 1px solid rgba(93, 79, 133, 0.3); }
 .tag-lang[data-filter-value="Scala"] { background: #DC322F; color: #fff; border: 1px solid rgba(220, 50, 47, 0.3); }
 .tag-lang[data-filter-value="Ruby"] { background: #CC342D; color: #fff; border: 1px solid rgba(204, 52, 45, 0.3); }
@@ -912,6 +915,10 @@ button {
 }
 
 @media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
   * {
     animation-duration: 0.01ms !important;
     transition-duration: 0.01ms !important;

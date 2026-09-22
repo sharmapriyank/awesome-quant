@@ -11,7 +11,18 @@ import html
 import os
 import re
 import sys
+from collections import Counter
 from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[1]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+
+from scripts.readme_entries import (
+    GITHUB_LINK_RE,
+    iter_readme_entries,
+    slugify,
+)
 
 # Repo that this deployment's site links back to (Submit a Project, GitHub,
 # Contribute). Overridable for previews/forks via env var.
@@ -39,101 +50,53 @@ NON_LANGUAGE_TAGS = frozenset({
 })
 
 
-def slugify(text: str) -> str:
-    """Convert text to lowercase hyphen-separated slug."""
-    text = text.lower().strip()
-    text = re.sub(r"[&/]+", "-", text)
-    text = re.sub(r"[^\w\s-]", "", text)
-    text = re.sub(r"[\s_]+", "-", text)
-    text = re.sub(r"-+", "-", text)
-    return text.strip("-")
-
-
 def parse_readme(path: str) -> list[dict]:
-    """Parse README.md and return a list of project entries (no API data)."""
+    """Parse README.md for a quick preview (no API data).
+
+    Uses the shared `iter_readme_entries` parser so preview output matches
+    the CSV pipeline exactly.
+    """
     entries = []
-    current_category = ""
+    for entry in iter_readme_entries(path):
+        gh_match = GITHUB_LINK_RE.search(entry.description)
+        if gh_match:
+            github_url = gh_match.group(1)
+            desc = GITHUB_LINK_RE.sub("", entry.description).rstrip(". ").rstrip() + "."
+        elif "github.com" in entry.url:
+            github_url = entry.url
+            desc = entry.description
+        else:
+            github_url = ""
+            desc = entry.description
 
-    re_h2 = re.compile(r"^## (.+)$")
-    re_entry = re.compile(r"^\s*- \[(.+?)\]\((.+?)\) - (.+)$")
-    re_github = re.compile(r"\[GitHub\]\((https://github\.com/[\w-]+/[-\w\.]+)\)")
-    re_badge = re.compile(r"\s*!\[[^\]]*\]\([^)]*\)\s*")
-    re_langs = re.compile(r'^((?:`[^`]+`\s*)+)-\s*(.*)$')
+        repo = ""
+        if github_url:
+            repo_match = re.match(
+                r"https://github\.com/([\w-]+/[-\w\.]+)", github_url
+            )
+            if repo_match:
+                repo = repo_match.group(1)
 
-    skip_sections = {"Contents"}
-
-    with open(path, encoding="utf-8") as f:
-        for raw_line in f:
-            line = re_badge.sub(" ", raw_line).rstrip("\n")
-
-            m = re_h2.match(line)
-            if m:
-                current_category = m.group(1).strip()
-                continue
-
-            if current_category in skip_sections:
-                continue
-
-            m = re_entry.match(line)
-            if m:
-                name = m.group(1).strip()
-                url = m.group(2).strip()
-                raw_desc = m.group(3).strip()
-
-                # Extract inline language tags
-                m_lang = re_langs.match(raw_desc)
-                if m_lang:
-                    lang_str = m_lang.group(1)
-                    desc = m_lang.group(2)
-                    languages = re.findall(r'`([^`]+)`', lang_str)
-                else:
-                    desc = raw_desc
-                    languages = []
-
-                primary_language = languages[0] if languages else ""
-
-                github_url = ""
-                gh_match = re_github.search(desc)
-                if gh_match:
-                    github_url = gh_match.group(1)
-                    desc = re_github.sub("", desc).rstrip(". ").rstrip() + "."
-                elif "github.com" in url:
-                    github_url = url
-
-                repo = ""
-                if github_url:
-                    repo_match = re.match(
-                        r"https://github\.com/([\w-]+/[-\w\.]+)", github_url
-                    )
-                    if repo_match:
-                        repo = repo_match.group(1)
-
-                is_cran = "cran.r-project.org" in url
-                is_pypi = "pypi.org" in url or "pypi.python.org" in url
-                is_commercial = current_category == "Commercial & Proprietary Services"
-                section_slug = slugify(current_category)
-
-                entries.append(
-                    {
-                        "project": name,
-                        "language": primary_language,
-                        "languages": ",".join(languages),
-                        "category": current_category,
-                        "section_slug": section_slug,
-                        "url": url,
-                        "description": desc,
-                        "github": bool(github_url),
-                        "cran": is_cran,
-                        "pypi": is_pypi,
-                        "commercial": is_commercial,
-                        "github_url": github_url,
-                        "repo": repo,
-                        "stars": 0,
-                        "last_commit": "",
-                        "archived": False,
-                    }
-                )
-
+        entries.append(
+            {
+                "project": entry.name,
+                "language": entry.languages[0] if entry.languages else "",
+                "languages": ",".join(entry.languages),
+                "category": entry.section,
+                "section_slug": slugify(entry.section),
+                "url": entry.url,
+                "description": desc,
+                "github": bool(github_url),
+                "cran": "cran.r-project.org" in entry.url,
+                "pypi": "pypi.org" in entry.url or "pypi.python.org" in entry.url,
+                "commercial": entry.section == "Commercial & Proprietary Services",
+                "github_url": github_url,
+                "repo": repo,
+                "stars": 0,
+                "last_commit": "",
+                "archived": False,
+            }
+        )
     return entries
 
 
@@ -231,8 +194,6 @@ def build_tags_html(e: dict) -> str:
 
 def build_tag_cloud(entries: list[dict]) -> str:
     """Build a tag cloud of popular languages and categories."""
-    from collections import Counter
-
     # Count language frequencies (real programming languages only)
     lang_counts: Counter = Counter()
     for e in entries:
@@ -370,7 +331,7 @@ def generate_html(entries: list[dict]) -> str:
         tags_html = build_tags_html(e)
 
         rows.append(
-            f"""      <tr class="row" data-languages="{languages_attr}" data-category="{category}" data-sources="{sources_attr}" data-stars="{stars}" tabindex="-1" aria-expanded="false">
+            f"""      <tr class="row" data-name="{esc(e['project'].lower(), quote=True)}" data-languages="{languages_attr}" data-category="{category}" data-sources="{sources_attr}" data-stars="{stars}" tabindex="-1" aria-expanded="false">
         <td class="col-num">{i}</td>
         <td class="col-name">
           {f'<a href="{url}" target="_blank" rel="noopener">{name}</a>' if url else name}
@@ -465,7 +426,7 @@ def generate_html(entries: list[dict]) -> str:
         </div>
 
         <div class="table-wrap">
-          <table class="table" id="project-table">
+          <table class="table" id="project-table" aria-label="Quantitative finance projects">
             <thead>
               <tr>
                 <th class="col-num">#</th>

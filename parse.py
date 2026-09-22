@@ -3,9 +3,10 @@ import os
 import random
 import re
 import time
+from concurrent.futures import ThreadPoolExecutor
 from html.parser import HTMLParser
-from threading import BoundedSemaphore, Lock, Thread
-from urllib.error import HTTPError
+from threading import BoundedSemaphore, Lock
+from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
 import pandas as pd
@@ -23,7 +24,7 @@ _github_client = None
 _REPO_CACHE: dict = {}
 _REPO_CACHE_LOCK = Lock()
 # Bound concurrent repo-page requests so token-free runs do not trip
-# GitHub's abuse-rate limiting (each entry spawns its own thread).
+# GitHub's abuse-rate limiting.
 _SCRAPE_SLOTS = BoundedSemaphore(4)
 _SCRAPE_UA = "awesome-quant-bot (metadata check)"
 # Transient codes worth retrying; GitHub signals burst-throttling via 429/403.
@@ -46,6 +47,14 @@ def _fetch_text(url, attempts=4, timeout=20):
                 else:
                     wait = delay
                 time.sleep(wait + random.uniform(0, 2))
+                delay = min(delay * 2, 60)
+                continue
+            raise
+        except (URLError, TimeoutError, OSError):
+            # Transient transport failures (DNS, resets, timeouts, TLS) —
+            # retry with the same backoff as retryable statuses.
+            if attempt < attempts - 1:
+                time.sleep(delay + random.uniform(0, 2))
                 delay = min(delay * 2, 60)
                 continue
             raise
@@ -267,9 +276,8 @@ def _get_repo_info_api(repo):
         return "error", 0, False
 
 
-class Project(Thread):
+class Project:
     def __init__(self, match, language, category, section_path):
-        super().__init__()
         self._match = match
         self.regs = None
         self._language = language
@@ -313,6 +321,8 @@ class Project(Thread):
                 pypi_date = get_pypi_last_updated(primary_url)
                 if pypi_date:
                     last_commit = pypi_date
+        if last_commit == "error":
+            last_commit = ""
 
         # Build section slug from category or language
         section_slug = slugify(self._category or self._language)
@@ -363,7 +373,6 @@ def main():
                 )
                 p.languages = languages
                 p.clean_description = clean_description
-                p.start()
                 projects.append(p)
             else:
                 m = ret.match(line)
@@ -373,8 +382,12 @@ def main():
                     if len(hrs) == 2 and title != "Contents":
                         current_category = title
 
-    for p in projects:
-        p.join()
+    # Bound the worker pool: one thread per entry (~700) spikes memory and
+    # leaves non-GitHub fetches unbounded; 8 is plenty for I/O-bound work.
+    with ThreadPoolExecutor(max_workers=8) as pool:
+        futures = [pool.submit(p.run) for p in projects]
+        for future in futures:
+            future.result()
 
     missing = [p for p in projects if p.regs is None]
     if missing:

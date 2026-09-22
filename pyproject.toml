@@ -1,8 +1,9 @@
 [project]
 name = "awesome-quant"
 version = "0.1.0"
-description = ""
+description = "Curated list of quantitative finance libraries, plus the pipeline that publishes it (parser, validator, audit tooling, static site)."
 authors = [{ name = "Wilson Freitas", email = "wilson.freitas@gmail.com" }]
+maintainers = [{ name = "sharmapriyank" }]
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [

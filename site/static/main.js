@@ -23,8 +23,25 @@
   // ===== Theme =====
   const themeToggle = $(".theme-toggle");
 
+  // localStorage can throw in sandboxed/private contexts — degrade quietly
+  function storageGet(key) {
+    try {
+      return localStorage.getItem(key);
+    } catch {
+      return null;
+    }
+  }
+
+  function storageSet(key, value) {
+    try {
+      localStorage.setItem(key, value);
+    } catch {
+      /* unavailable */
+    }
+  }
+
   function getPreferredTheme() {
-    const stored = localStorage.getItem("theme");
+    const stored = storageGet("theme");
     if (stored) return stored;
     return window.matchMedia("(prefers-color-scheme: dark)").matches
       ? "dark"
@@ -33,7 +50,7 @@
 
   function applyTheme(theme) {
     document.documentElement.setAttribute("data-theme", theme);
-    localStorage.setItem("theme", theme);
+    storageSet("theme", theme);
   }
 
   applyTheme(getPreferredTheme());
@@ -108,13 +125,22 @@
       // Search
       if (query && !text.includes(query)) show = false;
 
-      // Tag filter (unknown types filter nothing and show no bar)
+      // Tag filter (unknown types filter nothing and show no bar);
+      // matching is case-insensitive so hand-edited URLs keep working
       if (show && activeFilter.value && FILTER_TYPES.has(activeFilter.type)) {
         const ft = activeFilter.type;
-        const fv = activeFilter.value;
-        if (ft === "language" && !languages.includes(fv)) show = false;
-        if (ft === "category" && category !== fv) show = false;
-        if (ft === "source" && !sources.split(" ").includes(fv)) show = false;
+        const fv = activeFilter.value.toLowerCase();
+        if (
+          ft === "language" &&
+          !languages.some((l) => l.toLowerCase() === fv)
+        )
+          show = false;
+        if (ft === "category" && category.toLowerCase() !== fv) show = false;
+        if (
+          ft === "source" &&
+          !sources.split(" ").some((s) => s.toLowerCase() === fv)
+        )
+          show = false;
       }
 
       row.hidden = !show;
@@ -244,7 +270,8 @@
   // ===== Sort =====
   function getSortValue(row, key) {
     if (key === "name") {
-      return ($(".col-name a", row)?.textContent || "").toLowerCase();
+      // data-name covers rows whose unsafe-scheme URL renders without a link
+      return row.dataset.name || "";
     }
     if (key === "stars") {
       return parseInt(row.dataset.stars || "0", 10);
@@ -272,6 +299,11 @@
         let cmp;
         if (typeof va === "number" && typeof vb === "number") {
           cmp = va - vb;
+        } else if (va === "" || vb === "") {
+          // Missing values (e.g. unknown last-update) sink to the bottom
+          // in either direction — unknown is not "oldest".
+          if (va === "" && vb === "") return 0;
+          return va === "" ? 1 : -1;
         } else {
           cmp = String(va).localeCompare(String(vb));
         }

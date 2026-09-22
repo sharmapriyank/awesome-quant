@@ -408,10 +408,13 @@ def url_reachable(
         target = parsed.path or "/"
         if parsed.query:
             target = f"{target}?{parsed.query}"
+        # Prefer IPv4 — networks without IPv6 routing must still reach
+        # dual-stack hosts (same rule as scripts/url_probe.py).
+        address = min(addresses, key=lambda a: (":" in a, a))
         for method in ("HEAD", "GET"):
             status = requester(
                 parsed.hostname,
-                min(addresses),
+                address,
                 port,
                 target,
                 method,

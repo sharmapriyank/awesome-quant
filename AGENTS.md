@@ -47,7 +47,7 @@ uv run python scripts/validate_readme.py --diff-from origin/master
 # Validate the full README; legacy format/duplicate/URL issues are warnings by default
 uv run python scripts/validate_readme.py
 
-# Run parser (requires GitHub token)
+# Run parser (token optional — falls back to token-free page scraping)
 GITHUB_ACCESS_TOKEN=<token> uv run python parse.py
 
 # Generate static site
@@ -157,6 +157,7 @@ user to configure the MCP server.
   for those additions.
 - `scripts/validate_readme.py` validates the full README. Legacy format, duplicate, and
   URL problems are reported as warnings unless strict flags are used.
-- `parse.py` requires `GITHUB_ACCESS_TOKEN`; `site/generate.py` can run without
-  the token if `site/projects.csv` already exists or if it falls back to direct
-  README parsing.
+- `parse.py` uses `GITHUB_ACCESS_TOKEN` when set and otherwise scrapes
+  GitHub/CRAN/PyPI pages token-free (repo-page fetches are rate-bounded).
+- `site/generate.py` needs no token: it reads `site/projects.csv` when present
+  or parses `README.md` directly for local previews (same shared parser).
