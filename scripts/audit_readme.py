@@ -447,11 +447,15 @@ def _candidate_repositories(entry: ReadmeEntry, github_client: Any) -> tuple[Can
 
 def audit_readme(
     readme_path: str | Path,
-    github_client: Any,
+    github_client: Any | None = None,
     *,
     prober: Callable[[str], UrlObservation] = probe_url,
 ) -> list[Finding]:
-    """Audit README URLs and GitHub metadata without modifying repository files."""
+    """Audit README URLs and GitHub metadata without modifying repository files.
+
+    When `github_client` is None only URL probing runs; repository metadata
+    (moved/archived/disabled/parent) and candidate-search checks are skipped.
+    """
     targets = collect_targets(readme_path)
     unique_urls = list(dict.fromkeys(target.url for target in targets))
     with ThreadPoolExecutor(max_workers=8) as executor:
@@ -465,7 +469,7 @@ def audit_readme(
             findings.append(link_finding)
 
         requested_name = _parse_github_repository_url(target.url)
-        if requested_name is not None:
+        if github_client is not None and requested_name is not None:
             cache_key = requested_name.casefold()
             if cache_key not in repository_cache:
                 try:
@@ -479,7 +483,8 @@ def audit_readme(
                 findings.extend(_github_findings(target, requested_name, repository))
 
         if (
-            observation.outcome == Outcome.DEAD
+            github_client is not None
+            and observation.outcome == Outcome.DEAD
             and target.is_primary
             and requested_name is None
             and not target.entry.github_url
@@ -514,11 +519,27 @@ def parse_args() -> argparse.Namespace:
         description="Audit awesome-quant README links and repositories."
     )
     parser.add_argument("--readme", default="README.md")
+    parser.add_argument(
+        "--no-github",
+        action="store_true",
+        help=(
+            "Offline mode: probe every URL and print findings locally. "
+            "GitHub repository metadata checks and tracking-issue sync are "
+            "skipped (no GITHUB_TOKEN/GITHUB_REPOSITORY required)."
+        ),
+    )
     return parser.parse_args()
 
 
 def main() -> int:
     args = parse_args()
+
+    if getattr(args, "no_github", False) is True:
+        findings = audit_readme(args.readme)
+        print(render_report(findings, checked_at=datetime.now(timezone.utc)))
+        print(f"README audit (offline): {len(findings)} finding(s)")
+        return 0
+
     token = os.environ.get("GITHUB_TOKEN", "").strip()
     if not token:
         raise RuntimeError("GITHUB_TOKEN is required")
