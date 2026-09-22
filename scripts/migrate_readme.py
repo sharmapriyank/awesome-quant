@@ -248,8 +248,7 @@ def parse_current_readme(path: str):
     current_category = ""
     skip_sections = {"Languages"}
     # Track sub-entries that belong to a parent
-    pending_sub_lines = []
-    last_entry = None
+    last_entry: dict | None = None
 
     with open(path, "r", encoding="utf-8") as f:
         for line in f:
@@ -280,7 +279,7 @@ def parse_current_readme(path: str):
                 url = m.group(2).strip()
                 desc = m.group(3).strip()
 
-                entry = {
+                entry: dict = {
                     "name": name,
                     "url": url,
                     "description": desc,
@@ -384,6 +383,14 @@ def main():
     print(f"Parsing {readme_path}...")
     entries = parse_current_readme(str(readme_path))
     print(f"Found {len(entries)} entries")
+
+    language_sections = {
+        "Python", "R", "Matlab", "Julia", "Java", "JavaScript", "Haskell",
+        "Scala", "Ruby", "Elixir/Erlang", "Golang", "CPP", "CSharp", "Rust",
+    }
+    if not {e["language"] for e in entries} & language_sections:
+        print("README is already in category-first layout — nothing to migrate.")
+        return
 
     # Classify and deduplicate
     sections: dict[str, list[str]] = {s: [] for s in SECTION_ORDER}
