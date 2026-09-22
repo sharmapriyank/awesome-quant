@@ -1,0 +1,1527 @@
+import difflib
+import io
+import unittest
+import warnings
+from contextlib import redirect_stderr, redirect_stdout
+from datetime import datetime, timedelta, timezone
+from types import SimpleNamespace
+from unittest.mock import patch
+
+from github import GithubException
+
+from scripts.review_pr import (
+    Finding,
+    PinnedHTTPSConnection,
+    main,
+    match_existing_entries,
+    readme_has_duplicate,
+    review_pr,
+    url_reachable,
+)
+
+
+NOW = datetime(2026, 8, 10, tzinfo=timezone.utc)
+ENTRY_URL = "https://github.com/example/fresh"
+VALID_PATCH = """@@ -1,1 +1,2 @@
+ ## Trading & Backtesting
++- [Fresh](https://github.com/example/fresh) - `Python` - Fresh project.
+"""
+
+TWO_ENTRY_PATCH = """@@ -1,1 +1,3 @@
+ ## Trading & Backtesting
++- [Fresh One](https://github.com/example/fresh-one) - `Python` - Fresh project one.
++- [Fresh Two](https://github.com/example/fresh-two) - `Python` - Fresh project two.
+"""
+
+FIVE_ENTRY_PATCH = """@@ -1,1 +1,6 @@
+ ## Trading & Backtesting
++- [Fresh One](https://github.com/example/fresh-one) - `Python` - Fresh project one.
++- [Fresh Two](https://github.com/example/fresh-two) - `Python` - Fresh project two.
++- [Fresh Three](https://github.com/example/fresh-three) - `Python` - Fresh project three.
++- [Fresh Four](https://github.com/example/fresh-four) - `Python` - Fresh project four.
++- [Fresh Five](https://github.com/example/fresh-five) - `Python` - Fresh project five.
+"""
+
+SIX_ENTRY_PATCH = FIVE_ENTRY_PATCH + (
+    "+- [Fresh Six](https://github.com/example/fresh-six) - "
+    "`Python` - Fresh project six.\n"
+)
+
+
+class FakePull:
+    def __init__(
+        self,
+        number,
+        *,
+        body="A useful contribution.",
+        files=None,
+        state="open",
+        closed_at=None,
+        title="Add Fresh",
+        base_sha=None,
+        head_sha=None,
+        base_readme=None,
+        head_readme=None,
+        content_error=False,
+    ):
+        self.number = number
+        self.body = body
+        self.state = state
+        self.closed_at = closed_at
+        self.updated_at = closed_at or NOW
+        self.title = title
+        self.base = SimpleNamespace(
+            sha=base_sha or ("base-sha" if number == 10 else f"base-{number}")
+        )
+        self.head = SimpleNamespace(
+            sha=head_sha or ("head-sha" if number == 10 else f"head-{number}")
+        )
+        self._files = files if files is not None else [
+            SimpleNamespace(filename="README.md", patch=VALID_PATCH)
+        ]
+        self.base_readme = base_readme or (
+            "# awesome-quant\n\n"
+            "## Trading & Backtesting\n"
+        )
+        added_lines = [
+            line[1:]
+            for changed_file in self._files
+            if changed_file.filename == "README.md" and changed_file.patch
+            for line in changed_file.patch.splitlines()
+            if line.startswith("+- ")
+        ]
+        self.head_readme = head_readme or (
+            self.base_readme.rstrip() + "\n" + "\n".join(added_lines) + "\n"
+        )
+        self.content_error = content_error
+
+    def get_files(self):
+        return list(self._files)
+
+
+class FakeProjectRepository:
+    def __init__(self):
+        self.archived = False
+        self.pushed_at = NOW
+        self.has_root_readme = True
+        self.has_readme = True
+        self.readme_error = None
+
+    def get_contents(self, path):
+        if path != "README.md":
+            raise AssertionError(f"unexpected project path: {path}")
+        if not self.has_root_readme:
+            raise RuntimeError("README not found")
+        return SimpleNamespace(decoded_content=b"# Fresh")
+
+    def get_readme(self):
+        if self.readme_error:
+            raise self.readme_error
+        if not self.has_readme:
+            raise GithubException(404, {"message": "Not Found"})
+        return SimpleNamespace(decoded_content=b"# Fresh")
+
+
+class FakeBaseRepository:
+    default_branch = "main"
+
+    def __init__(
+        self,
+        pull,
+        *,
+        other_pulls=(),
+        base_readme=(
+            "# awesome-quant\n\n"
+            "## Trading & Backtesting\n"
+        ),
+        head_readme=None,
+    ):
+        self.pull = pull
+        self.other_pulls = list(other_pulls)
+        self.base_readme = base_readme
+        self.head_readme = head_readme or (
+            base_readme.rstrip()
+            + "\n"
+            + VALID_PATCH.splitlines()[-1][1:]
+            + "\n"
+        )
+        self.pull_query_error = None
+        self.content_refs = []
+
+    def get_pull(self, number):
+        if number != self.pull.number:
+            raise AssertionError(f"unexpected PR number: {number}")
+        return self.pull
+
+    def get_contents(self, path, ref=None):
+        if path != "README.md":
+            raise AssertionError(f"unexpected base content request: {path}, {ref}")
+        self.content_refs.append(ref)
+        if ref in {self.default_branch, "base-sha"}:
+            content = self.base_readme
+        elif ref == "head-sha":
+            content = self.head_readme
+        else:
+            matching_pull = next(
+                (
+                    pull
+                    for pull in self.other_pulls
+                    if ref in {pull.base.sha, pull.head.sha}
+                ),
+                None,
+            )
+            if matching_pull is None:
+                raise AssertionError(f"unexpected README ref: {ref}")
+            if matching_pull.content_error:
+                raise RuntimeError("candidate README content should not be fetched")
+            content = (
+                matching_pull.base_readme
+                if ref == matching_pull.base.sha
+                else matching_pull.head_readme
+            )
+        return SimpleNamespace(decoded_content=content.encode())
+
+    def get_pulls(self, **kwargs):
+        if self.pull_query_error:
+            raise self.pull_query_error
+        state = kwargs.get("state")
+        return [pull for pull in self.other_pulls if pull.state == state]
+
+
+class FakeClient:
+    def __init__(self, repository):
+        self.repository = repository
+        self.project_repository = FakeProjectRepository()
+        self.requested_repositories = []
+
+    def get_repo(self, name):
+        self.requested_repositories.append(name)
+        if name == "owner/list":
+            return self.repository
+        if name.startswith("example/"):
+            return self.project_repository
+        raise AssertionError(f"unexpected repository: {name}")
+
+
+class ReadmeDuplicateTests(unittest.TestCase):
+    def test_rejects_exact_name_when_url_differs(self):
+        readme = (
+            "## Trading & Backtesting\n\n"
+            "- [Example](https://github.com/example/old) - `Python` - Existing project.\n"
+        )
+
+        self.assertTrue(
+            readme_has_duplicate(
+                readme,
+                "Example",
+                ["https://github.com/example/new"],
+            )
+        )
+
+    def test_does_not_match_url_prefix(self):
+        readme = (
+            "## Trading & Backtesting\n\n"
+            "- [Other](https://github.com/example/freshness) - "
+            "`Python` - Existing project.\n"
+        )
+
+        self.assertFalse(
+            readme_has_duplicate(
+                readme,
+                "Fresh",
+                ["https://github.com/example/fresh"],
+            )
+        )
+
+    def test_matches_canonical_trailing_slash(self):
+        readme = (
+            "## Trading & Backtesting\n\n"
+            "- [Fresh](https://github.com/example/fresh/) - "
+            "`Python` - Existing project.\n"
+        )
+
+        self.assertTrue(
+            readme_has_duplicate(
+                readme,
+                "Other Name",
+                ["https://github.com/example/fresh"],
+            )
+        )
+
+
+
+class UrlReachabilityTests(unittest.TestCase):
+    @staticmethod
+    def address(ip_address):
+        return [(2, 1, 6, "", (ip_address, 443))]
+
+    def test_rejects_non_https_url_without_network_request(self):
+        requester = unittest.mock.Mock()
+
+        self.assertFalse(
+            url_reachable(
+                "http://example.com/project",
+                resolver=lambda *_args, **_kwargs: self.address("93.184.216.34"),
+                requester=requester,
+            )
+        )
+        requester.assert_not_called()
+
+    def test_rejects_private_address_without_network_request(self):
+        requester = unittest.mock.Mock()
+
+        self.assertFalse(
+            url_reachable(
+                "https://localhost/project",
+                resolver=lambda *_args, **_kwargs: self.address("127.0.0.1"),
+                requester=requester,
+            )
+        )
+        requester.assert_not_called()
+
+    def test_rejects_mixed_public_and_private_dns_answers(self):
+        requester = unittest.mock.Mock()
+
+        self.assertFalse(
+            url_reachable(
+                "https://example.com/project",
+                resolver=lambda *_args, **_kwargs: (
+                    self.address("93.184.216.34") + self.address("10.0.0.1")
+                ),
+                requester=requester,
+            )
+        )
+        requester.assert_not_called()
+
+    def test_rejects_multicast_address_without_network_request(self):
+        requester = unittest.mock.Mock()
+
+        self.assertFalse(
+            url_reachable(
+                "https://example.com/project",
+                resolver=lambda *_args, **_kwargs: self.address("224.0.0.1"),
+                requester=requester,
+            )
+        )
+        requester.assert_not_called()
+
+    def test_rejects_port_zero_without_network_request(self):
+        requester = unittest.mock.Mock()
+
+        self.assertFalse(
+            url_reachable(
+                "https://example.com:0/project",
+                resolver=lambda *_args, **_kwargs: self.address("93.184.216.34"),
+                requester=requester,
+            )
+        )
+        requester.assert_not_called()
+
+    def test_accepts_public_url_without_following_redirect(self):
+        requester = unittest.mock.Mock(return_value=302)
+
+        self.assertTrue(
+            url_reachable(
+                "https://example.com/project?source=test",
+                resolver=lambda *_args, **_kwargs: self.address("93.184.216.34"),
+                requester=requester,
+            )
+        )
+        requester.assert_called_once_with(
+            "example.com",
+            "93.184.216.34",
+            443,
+            "/project?source=test",
+            "HEAD",
+        )
+
+    def test_retries_with_get_when_head_is_not_supported(self):
+        requester = unittest.mock.Mock(side_effect=[405, 200])
+
+        self.assertTrue(
+            url_reachable(
+                "https://example.com/project",
+                resolver=lambda *_args, **_kwargs: self.address("93.184.216.34"),
+                requester=requester,
+            )
+        )
+        self.assertEqual(
+            [call.args[-1] for call in requester.call_args_list],
+            ["HEAD", "GET"],
+        )
+
+
+class PullRequestDuplicateTests(unittest.TestCase):
+    def review(self, *, other_pulls=()):
+        repository = FakeBaseRepository(
+            FakePull(10),
+            other_pulls=other_pulls,
+        )
+        client = FakeClient(repository)
+        with patch("scripts.review_pr.url_reachable", return_value=True):
+            findings, title, _entry_count = review_pr(
+                "owner/list",
+                10,
+                client,
+                now=NOW,
+            )
+        return findings, title, client
+
+    def test_repository_name_is_an_explicit_input(self):
+        findings, title, client = self.review()
+
+        self.assertEqual(findings, [])
+        self.assertEqual(title, "Add Fresh")
+        self.assertEqual(client.requested_repositories[0], "owner/list")
+
+    def test_rejects_duplicate_in_open_pull_request(self):
+        duplicate = FakePull(
+            9,
+            body=f"Previously proposed {ENTRY_URL}",
+        )
+
+        findings, _title, _client = self.review(other_pulls=[duplicate])
+
+        self.assertIn("duplicates", {finding.check for finding in findings})
+
+    def test_rejects_duplicate_in_recently_closed_pull_request(self):
+        duplicate = FakePull(
+            8,
+            body="Previously proposed Fresh",
+            state="closed",
+            closed_at=NOW - timedelta(days=30),
+        )
+
+        findings, _title, _client = self.review(other_pulls=[duplicate])
+
+        self.assertIn("duplicates", {finding.check for finding in findings})
+
+    def test_unrelated_candidates_require_only_one_readme_request_each(self):
+        unrelated_patch = """@@ -1,1 +1,2 @@
+ ## Trading & Backtesting
++- [Other](https://github.com/example/other) - `Python` - Other project.
+"""
+        candidates = [
+            FakePull(
+                number,
+                files=[SimpleNamespace(filename="README.md", patch=unrelated_patch)],
+            )
+            for number in range(100, 200)
+        ]
+
+        findings, _title, client = self.review(other_pulls=candidates)
+
+        self.assertEqual(findings, [])
+        self.assertEqual(len(client.repository.content_refs), 102)
+        candidate_base_refs = {f"base-{number}" for number in range(100, 200)}
+        self.assertTrue(
+            candidate_base_refs.isdisjoint(client.repository.content_refs)
+        )
+
+    def test_reuses_the_current_base_readme_when_confirming_a_duplicate(self):
+        duplicate = FakePull(9, base_sha="base-sha")
+
+        findings, _title, client = self.review(other_pulls=[duplicate])
+
+        self.assertIn("duplicates", {finding.check for finding in findings})
+        self.assertEqual(client.repository.content_refs.count("base-sha"), 1)
+
+    def test_ignores_old_closed_pull_request(self):
+        old_duplicate = FakePull(
+            7,
+            body=f"Previously proposed {ENTRY_URL}",
+            state="closed",
+            closed_at=NOW - timedelta(days=366),
+            content_error=True,
+        )
+
+        findings, _title, _client = self.review(other_pulls=[old_duplicate])
+
+        self.assertEqual(findings, [])
+
+    def test_uses_full_readmes_when_candidate_patch_is_truncated(self):
+        duplicate = FakePull(
+            4,
+            files=[
+                SimpleNamespace(
+                    filename="README.md",
+                    patch="@@ -500,0 +501,1 @@\n context only",
+                )
+            ],
+            head_readme=(
+                "# awesome-quant\n\n"
+                "## Trading & Backtesting\n"
+                "- [Fresh](https://github.com/example/fresh) - "
+                "`Python` - Fresh project.\n"
+            ),
+        )
+
+        findings, _title, _client = self.review(other_pulls=[duplicate])
+
+        self.assertIn("duplicates", {finding.check for finding in findings})
+
+    def test_does_not_match_project_name_inside_unrelated_word(self):
+        unrelated_patch = """@@ -1,1 +1,2 @@
+ ## Trading & Backtesting
++- [Other](https://github.com/example/other) - `Python` - Other project.
+"""
+        unrelated = FakePull(
+            6,
+            title="Maintenance",
+            body="Refresh metadata for the list.",
+            files=[
+                SimpleNamespace(
+                    filename="README.md",
+                    patch=unrelated_patch,
+                )
+            ],
+        )
+
+        findings, _title, _client = self.review(other_pulls=[unrelated])
+
+        self.assertEqual(findings, [])
+
+    def test_requires_matching_entry_not_matching_title(self):
+        unrelated_patch = """@@ -1,1 +1,2 @@
+ ## Trading & Backtesting
++- [Other](https://github.com/example/other) - `Python` - Other project.
+"""
+        unrelated = FakePull(
+            5,
+            title="Fresh ideas for the list",
+            body="A maintenance proposal.",
+            files=[
+                SimpleNamespace(
+                    filename="README.md",
+                    patch=unrelated_patch,
+                )
+            ],
+        )
+
+        findings, _title, _client = self.review(other_pulls=[unrelated])
+
+        self.assertEqual(findings, [])
+
+    def test_can_skip_cross_pull_request_duplicate_scanning(self):
+        candidates = [
+            FakePull(number, content_error=True)
+            for number in range(100, 200)
+        ]
+        repository = FakeBaseRepository(FakePull(10), other_pulls=candidates)
+        client = FakeClient(repository)
+
+        with patch("scripts.review_pr.url_reachable", return_value=True):
+            findings, _title, _entry_count = review_pr(
+                "owner/list",
+                10,
+                client,
+                now=NOW,
+                check_pull_request_duplicates=False,
+            )
+
+        self.assertEqual(findings, [])
+        self.assertEqual(repository.content_refs, ["base-sha", "head-sha"])
+
+    def test_skip_still_rejects_a_duplicate_in_the_base_readme(self):
+        base_readme = (
+            "## Trading & Backtesting\n"
+            "- [Fresh](https://github.com/example/old) - `Python` - Existing project.\n"
+        )
+        repository = FakeBaseRepository(FakePull(10), base_readme=base_readme)
+        client = FakeClient(repository)
+
+        with patch("scripts.review_pr.url_reachable", return_value=True):
+            findings, _title, _entry_count = review_pr(
+                "owner/list",
+                10,
+                client,
+                now=NOW,
+                check_pull_request_duplicates=False,
+            )
+
+        self.assertIn("duplicates", {finding.check for finding in findings})
+
+    def test_pull_request_search_errors_fail_closed(self):
+        repository = FakeBaseRepository(FakePull(10))
+        repository.pull_query_error = RuntimeError("pull search failed")
+        client = FakeClient(repository)
+
+        with (
+            patch("scripts.review_pr.url_reachable", return_value=True),
+            self.assertRaisesRegex(RuntimeError, "pull search failed"),
+        ):
+            review_pr("owner/list", 10, client, now=NOW)
+
+
+class ValidationPipelineTests(unittest.TestCase):
+    def review_cleanup(self, old_entries, new_entries, **kwargs):
+        base = "# awesome-quant\n\n## Trading & Backtesting\n" + old_entries
+        head = "# awesome-quant\n\n## Trading & Backtesting\n" + new_entries
+        patch_text = "".join(difflib.unified_diff(
+            base.splitlines(keepends=True), head.splitlines(keepends=True)
+        ))
+        return self.review(
+            patch_text=patch_text, base_readme=base, head_readme=head, **kwargs
+        )
+
+    def test_cleanup_accepts_six_updates_and_a_removal(self):
+        old = "".join(
+            f"- [Existing {i}](https://github.com/example/existing-{i}) - `Python` - Old description.\n"
+            for i in range(6)
+        )
+        removed = "- [Dead](https://github.com/example/dead) - `Python` - Dead project.\n"
+        self.assertEqual(self.review_cleanup(old + removed, old.replace("Old", "New")), set())
+
+    def test_cleanup_accepts_removal_only_without_live_project_checks(self):
+        old = "- [Dead](https://github.com/example/dead) - `Python` - Dead project.\n"
+        def unavailable(project):
+            project.archived = True
+            project.has_readme = False
+        self.assertEqual(
+            self.review_cleanup(old, "", reachable=False, configure_project=unavailable), set()
+        )
+
+    def test_cleanup_rejects_malformed_removal(self):
+        self.assertIn("content", self.review_cleanup("- malformed entry\n", ""))
+
+    def test_cleanup_rejects_prose_removal(self):
+        old = "- [Dead](https://github.com/example/dead) - `Python` - Dead project.\n"
+        self.assertIn("content", self.review_cleanup(old + "Important policy.\n", ""))
+
+    def test_cleanup_rejects_new_projects_mixed_with_removal(self):
+        old = "- [Dead](https://github.com/example/dead) - `Python` - Dead project.\n"
+        new = "- [Fresh](https://github.com/example/fresh) - `Python` - Fresh project.\n"
+        self.assertIn("content", self.review_cleanup(old, new))
+
+    def test_cleanup_still_checks_changed_entry_fields(self):
+        old = "- [Fresh](https://github.com/example/fresh) - `Python` - Old description.\n"
+        cases = [
+            (old.replace("Old description.", "No period"), "period"),
+            (old.replace("`Python` - ", ""), "tags"),
+            (old.replace("https://", "http://"), "url"),
+        ]
+        for new, expected in cases:
+            with self.subTest(expected=expected):
+                self.assertIn(expected, self.review_cleanup(old, new))
+
+    def test_cleanup_does_not_readmit_unchanged_stale_archived_repository(self):
+        old = "- [Fresh](https://github.com/example/fresh) - `Python` - Old description.\n"
+        def legacy(project):
+            project.archived = True
+            project.pushed_at = NOW - timedelta(days=800)
+        self.assertEqual(
+            self.review_cleanup(old, old.replace("Old", "New"), configure_project=legacy), set()
+        )
+
+    def test_cleanup_still_checks_unchanged_repository_documentation(self):
+        old = "- [Fresh](https://github.com/example/fresh) - `Python` - Old description.\n"
+        def missing_docs(project):
+            project.has_readme = False
+        self.assertIn("documentation", self.review_cleanup(
+            old, old.replace("Old", "New"), configure_project=missing_docs
+        ))
+
+    def test_cleanup_same_id_rename_preserves_legacy_exemption(self):
+        old = "- [Fresh](https://github.com/example/old) - `Python` - Research tool.\n"
+        def legacy(project):
+            project.id = 123
+            project.archived = True
+            project.pushed_at = NOW - timedelta(days=800)
+        self.assertEqual(self.review_cleanup(
+            old, old.replace("example/old", "example/fresh"), configure_project=legacy
+        ), set())
+
+    def test_cleanup_six_name_and_url_renames_match_same_ids(self):
+        old = "".join(
+            f"- [Old {i}](https://github.com/example/old-{i}) - `Python` - Tool.\n"
+            for i in range(6)
+        )
+        new = old.replace("[Old", "[New").replace("/old-", "/new-")
+        original = FakeClient.get_repo
+        requested = []
+        def lookup(client, name):
+            requested.append(name)
+            project = original(client, name)
+            if name.startswith("example/"):
+                project.id = int(name.rsplit("-", 1)[1]) + 1
+            return project
+        with patch.object(FakeClient, "get_repo", lookup):
+            self.assertEqual(self.review_cleanup(old, new), set())
+        for i in range(6):
+            self.assertEqual(requested.count(f"example/old-{i}"), 1)
+
+    def test_cleanup_rename_does_not_pair_extra_copy(self):
+        old = "- [Old](https://github.com/example/old) - `Python` - Tool.\n"
+        new = old.replace("[Old]", "[New]").replace("/old)", "/new)")
+        def identity(project):
+            project.id = 123
+        self.assertEqual(
+            match_existing_entries([new, new], [old], lambda url: 123),
+            [old, None],
+        )
+        self.assertIn("duplicates", self.review_cleanup(
+            old, new + new.replace("Tool.", "Second copy."), configure_project=identity
+        ))
+
+    def test_cleanup_different_ids_still_check_activity(self):
+        old = "- [Fresh](https://github.com/example/old) - `Python` - Tool.\n"
+        original = FakeClient.get_repo
+        def lookup(client, name):
+            project = original(client, name)
+            if name.startswith("example/"):
+                project.id = 1 if name.endswith("/old") else 2
+                project.pushed_at = NOW - timedelta(days=800)
+            return project
+        with patch.object(FakeClient, "get_repo", lookup):
+            self.assertIn("activity", self.review_cleanup(
+                old, old.replace("/old)", "/new)")
+            ))
+
+    def test_cleanup_same_id_rename_section_move_checks_activity(self):
+        old = "- [Old](https://github.com/example/old) - `Python` - Tool.\n"
+        new = old.replace("[Old]", "[New]").replace("/old)", "/new)")
+        def archived(project):
+            project.id = 123
+            project.archived = True
+        self.assertIn("activity", self.review_cleanup(
+            old + "\n## Portfolio Optimization & Risk Analysis\n",
+            "\n## Portfolio Optimization & Risk Analysis\n" + new,
+            configure_project=archived,
+        ))
+
+    def test_cleanup_failed_old_identity_lookup_does_not_grant_exemption(self):
+        old = "- [Fresh](https://github.com/example/old) - `Python` - Tool.\n"
+        original = FakeClient.get_repo
+        def lookup(client, name):
+            if name == "example/old":
+                raise GithubException(404, {"message": "Not Found"})
+            project = original(client, name)
+            if name.startswith("example/"):
+                project.id = 123
+                project.pushed_at = NOW - timedelta(days=800)
+            return project
+        with patch.object(FakeClient, "get_repo", lookup):
+            self.assertIn("activity", self.review_cleanup(
+                old, old.replace("/old)", "/new)")
+            ))
+
+    def test_cleanup_rechecks_replacement_repository_activity(self):
+        old = "- [Fresh](https://github.com/example/old) - `Python` - Old description.\n"
+        def stale(project):
+            project.pushed_at = NOW - timedelta(days=800)
+        self.assertIn("activity", self.review_cleanup(
+            old, old.replace("example/old", "example/fresh"), configure_project=stale
+        ))
+
+    def test_cleanup_section_move_rechecks_activity(self):
+        old = "- [Fresh](https://github.com/example/fresh) - `Python` - Fresh project.\n"
+        def archived(project):
+            project.archived = True
+        self.assertIn("activity", self.review_cleanup(
+            old + "\n## Portfolio Optimization & Risk Analysis\n",
+            "\n## Portfolio Optimization & Risk Analysis\n" + old,
+            configure_project=archived,
+        ))
+
+    def test_cleanup_can_repair_existing_repositoryless_link(self):
+        old = "- [Legacy](https://example.com/docs) - `Python` - Documentation.\n"
+        new = old.replace("/docs)", "/docs/)")
+        self.assertEqual(self.review_cleanup(old, new), set())
+        self.assertIn("reachability", self.review_cleanup(old, new, reachable=False))
+
+    def test_cleanup_cannot_remove_source_from_functional_entry(self):
+        old = "- [Fresh](https://example.com/) - `Python` - Fresh project. [GitHub](https://github.com/example/fresh)\n"
+        new = old.replace(" [GitHub](https://github.com/example/fresh)", "")
+        self.assertIn("github", self.review_cleanup(old, new))
+
+    def test_cleanup_empty_diff_is_not_accepted(self):
+        self.assertIn("entry-count", self.review_cleanup("", ""))
+
+    def test_cleanup_cannot_add_policy_text(self):
+        old = "- [Fresh](https://github.com/example/fresh) - `Python` - Old description.\n"
+        self.assertIn("content", self.review_cleanup(
+            old, old.replace("Old", "New") + "Changed policy.\n"
+        ))
+
+    def test_mixed_new_submission_does_not_get_legacy_activity_exception(self):
+        old = "- [Fresh](https://github.com/example/fresh) - `Python` - Old description.\n"
+        new = old.replace("Old", "New") + "- [Extra](https://github.com/example/extra) - `Python` - Extra project.\n"
+        def stale(project):
+            project.pushed_at = NOW - timedelta(days=800)
+        self.assertIn("activity", self.review_cleanup(old, new, configure_project=stale))
+
+    def test_cleanup_section_move_does_not_grandfather_missing_source(self):
+        old = "- [Legacy](https://example.com/) - `Python` - Legacy project.\n"
+        self.assertIn("github", self.review_cleanup(
+            old + "\n## Portfolio Optimization & Risk Analysis\n",
+            "\n## Portfolio Optimization & Risk Analysis\n" + old,
+        ))
+
+    def test_cleanup_consolidates_duplicate_old_entries(self):
+        old = "- [Fresh](https://github.com/example/fresh) - `Python` - Old description.\n"
+        self.assertEqual(self.review_cleanup(old + old, old.replace("Old", "New")), set())
+
+    def test_cleanup_ambiguous_previous_section_receives_full_checks(self):
+        old = "- [Fresh](https://github.com/example/fresh) - `Python` - Old description.\n"
+        def stale(project):
+            project.pushed_at = NOW - timedelta(days=800)
+        self.assertIn("activity", self.review_cleanup(
+            old + "\n## Portfolio Optimization & Risk Analysis\n" + old,
+            old.replace("Old", "New") + "\n## Portfolio Optimization & Risk Analysis\n",
+            configure_project=stale,
+        ))
+
+    def review(
+        self,
+        *,
+        patch_text=VALID_PATCH,
+        body="A useful contribution.",
+        files=None,
+        base_readme=(
+            "# awesome-quant\n\n"
+            "## Trading & Backtesting\n"
+        ),
+        head_readme=None,
+        reachable=True,
+        configure_project=None,
+    ):
+        changed_files = files or [
+            SimpleNamespace(filename="README.md", patch=patch_text)
+        ]
+        if head_readme is None:
+            section = "Trading & Backtesting"
+            added_lines = []
+            for raw_line in patch_text.splitlines():
+                if raw_line.startswith(" ## "):
+                    section = raw_line[4:]
+                elif raw_line.startswith("+- "):
+                    added_lines.append(raw_line[1:])
+            heading = (
+                ""
+                if f"## {section}" in base_readme
+                else f"\n## {section}\n"
+            )
+            head_readme = (
+                base_readme.rstrip()
+                + heading
+                + "\n"
+                + "\n".join(added_lines)
+                + "\n"
+            )
+        repository = FakeBaseRepository(
+            FakePull(10, body=body, files=changed_files),
+            base_readme=base_readme,
+            head_readme=head_readme,
+        )
+        client = FakeClient(repository)
+        if configure_project:
+            configure_project(client.project_repository)
+        with patch(
+            "scripts.review_pr.url_reachable",
+            return_value=reachable,
+        ):
+            findings, _title, _entry_count = review_pr(
+                "owner/list",
+                10,
+                client,
+                now=NOW,
+            )
+        return {finding.check for finding in findings}
+
+    def test_uses_pinned_base_and_head_readmes(self):
+        repository = FakeBaseRepository(FakePull(10))
+        client = FakeClient(repository)
+
+        with patch("scripts.review_pr.url_reachable", return_value=True):
+            review_pr("owner/list", 10, client, now=NOW)
+
+        self.assertIn("base-sha", repository.content_refs)
+        self.assertIn("head-sha", repository.content_refs)
+        self.assertNotIn("main", repository.content_refs)
+
+    def test_does_not_probe_a_github_primary_url_after_api_validation(self):
+        repository = FakeBaseRepository(FakePull(10))
+        client = FakeClient(repository)
+
+        with patch("scripts.review_pr.url_reachable") as url_checker:
+            findings, _title, _entry_count = review_pr("owner/list", 10, client, now=NOW)
+
+        self.assertEqual(findings, [])
+        url_checker.assert_not_called()
+
+    def test_still_probes_an_external_primary_url(self):
+        patch_text = """@@ -1,1 +1,2 @@
+ ## Trading & Backtesting
++- [Fresh](https://example.com/fresh) - `Python` - Fresh project. [GitHub](https://github.com/example/fresh)
+"""
+        base_readme = "# awesome-quant\n\n## Trading & Backtesting\n"
+        head_readme = base_readme + patch_text.splitlines()[-1][1:] + "\n"
+        repository = FakeBaseRepository(
+            FakePull(10, files=[SimpleNamespace(filename="README.md", patch=patch_text)]),
+            base_readme=base_readme,
+            head_readme=head_readme,
+        )
+        client = FakeClient(repository)
+
+        with patch("scripts.review_pr.url_reachable", return_value=True) as url_checker:
+            findings, _title, _entry_count = review_pr("owner/list", 10, client, now=NOW)
+
+        self.assertEqual(findings, [])
+        url_checker.assert_called_once_with("https://example.com/fresh")
+
+    def test_url_connections_use_a_short_timeout(self):
+        connection = PinnedHTTPSConnection("example.com", "93.184.216.34", 443)
+
+        self.assertEqual(connection.timeout, 5)
+
+    def test_accepts_entry_when_heading_is_outside_patch_context(self):
+        patch_text = """@@ -20,0 +21,1 @@
++- [Fresh](https://github.com/example/fresh) - `Python` - Fresh project.
+"""
+        head_readme = (
+            "# awesome-quant\n\n"
+            "## Trading & Backtesting\n\n"
+            "- [Existing](https://github.com/example/existing) - "
+            "`Python` - Existing project.\n"
+            "- [Fresh](https://github.com/example/fresh) - "
+            "`Python` - Fresh project.\n"
+        )
+        base_readme = head_readme.replace(
+            "- [Fresh](https://github.com/example/fresh) - "
+            "`Python` - Fresh project.\n",
+            "",
+        )
+
+        self.assertNotIn(
+            "placement",
+            self.review(
+                patch_text=patch_text,
+                base_readme=base_readme,
+                head_readme=head_readme,
+            ),
+        )
+
+    def test_accepts_description_update_for_the_same_project(self):
+        base_readme = (
+            "# awesome-quant\n\n## Trading & Backtesting\n"
+            "- [Fresh](https://github.com/example/fresh) - `Python` - Old description.\n"
+        )
+        head_readme = base_readme.replace("Old description.", "New description.")
+        patch_text = """@@ -1,2 +1,2 @@
+-- [Fresh](https://github.com/example/fresh) - `Python` - Old description.
++- [Fresh](https://github.com/example/fresh) - `Python` - New description.
+"""
+
+        self.assertEqual(
+            self.review(
+                patch_text=patch_text,
+                base_readme=base_readme,
+                head_readme=head_readme,
+            ),
+            set(),
+        )
+
+    def test_accepts_tag_update_for_the_same_project(self):
+        base_readme = (
+            "# awesome-quant\n\n## Trading & Backtesting\n"
+            "- [Fresh](https://github.com/example/fresh) - `Python` - Fresh project.\n"
+        )
+        head_readme = base_readme.replace("`Python`", "`Python` `Rust`")
+        patch_text = """@@ -1,2 +1,2 @@
+-- [Fresh](https://github.com/example/fresh) - `Python` - Fresh project.
++- [Fresh](https://github.com/example/fresh) - `Python` `Rust` - Fresh project.
+"""
+
+        self.assertEqual(
+            self.review(
+                patch_text=patch_text,
+                base_readme=base_readme,
+                head_readme=head_readme,
+            ),
+            set(),
+        )
+
+    def test_accepts_url_update_when_the_name_is_unchanged(self):
+        base_readme = (
+            "# awesome-quant\n\n## Trading & Backtesting\n"
+            "- [Fresh](https://old.example.com/fresh) - `Python` - Fresh project. "
+            "[GitHub](https://github.com/example/fresh)\n"
+        )
+        head_readme = base_readme.replace(
+            "https://old.example.com/fresh",
+            "https://new.example.com/fresh",
+        )
+        patch_text = """@@ -1,2 +1,2 @@
+-- [Fresh](https://old.example.com/fresh) - `Python` - Fresh project. [GitHub](https://github.com/example/fresh)
++- [Fresh](https://new.example.com/fresh) - `Python` - Fresh project. [GitHub](https://github.com/example/fresh)
+"""
+
+        self.assertEqual(
+            self.review(
+                patch_text=patch_text,
+                base_readme=base_readme,
+                head_readme=head_readme,
+            ),
+            set(),
+        )
+
+    def test_accepts_rename_when_the_repository_is_unchanged(self):
+        base_readme = (
+            "# awesome-quant\n\n## Trading & Backtesting\n"
+            "- [Old Name](https://github.com/example/fresh) - `Python` - Fresh project.\n"
+        )
+        head_readme = base_readme.replace("[Old Name]", "[Fresh]")
+        patch_text = """@@ -1,2 +1,2 @@
+-- [Old Name](https://github.com/example/fresh) - `Python` - Fresh project.
++- [Fresh](https://github.com/example/fresh) - `Python` - Fresh project.
+"""
+
+        self.assertEqual(
+            self.review(
+                patch_text=patch_text,
+                base_readme=base_readme,
+                head_readme=head_readme,
+            ),
+            set(),
+        )
+
+    def test_accepts_section_move_for_the_same_project(self):
+        base_readme = (
+            "# awesome-quant\n\n## Trading & Backtesting\n"
+            "- [Fresh](https://github.com/example/fresh) - `Python` - Fresh project.\n"
+            "\n## Portfolio Optimization & Risk Analysis\n"
+        )
+        head_readme = (
+            "# awesome-quant\n\n## Trading & Backtesting\n"
+            "\n## Portfolio Optimization & Risk Analysis\n"
+            "- [Fresh](https://github.com/example/fresh) - `Python` - Fresh project.\n"
+        )
+        patch_text = """@@ -1,4 +1,4 @@
+-- [Fresh](https://github.com/example/fresh) - `Python` - Fresh project.
++- [Fresh](https://github.com/example/fresh) - `Python` - Fresh project.
+"""
+
+        self.assertEqual(
+            self.review(
+                patch_text=patch_text,
+                base_readme=base_readme,
+                head_readme=head_readme,
+            ),
+            set(),
+        )
+
+    def test_rejects_replacing_an_entry_with_an_unrelated_project(self):
+        base_readme = (
+            "# awesome-quant\n\n## Trading & Backtesting\n"
+            "- [Old](https://github.com/example/old) - `Python` - Old project.\n"
+        )
+        head_readme = (
+            "# awesome-quant\n\n## Trading & Backtesting\n"
+            "- [Fresh](https://github.com/example/fresh) - `Python` - Fresh project.\n"
+        )
+        patch_text = """@@ -1,2 +1,2 @@
+-- [Old](https://github.com/example/old) - `Python` - Old project.
++- [Fresh](https://github.com/example/fresh) - `Python` - Fresh project.
+"""
+
+        self.assertIn(
+            "content",
+            self.review(
+                patch_text=patch_text,
+                base_readme=base_readme,
+                head_readme=head_readme,
+            ),
+        )
+
+    def test_rejects_deleting_an_existing_entry(self):
+        base_readme = (
+            "# awesome-quant\n\n"
+            "## Trading & Backtesting\n\n"
+            "- [Existing](https://github.com/example/existing) - "
+            "`Python` - Existing project.\n"
+        )
+        head_readme = (
+            "# awesome-quant\n\n"
+            "## Trading & Backtesting\n\n"
+            "- [Fresh](https://github.com/example/fresh) - "
+            "`Python` - Fresh project.\n"
+        )
+        patch_text = """@@ -1,2 +1,2 @@
+-- [Existing](https://github.com/example/existing) - `Python` - Existing project.
++- [Fresh](https://github.com/example/fresh) - `Python` - Fresh project.
+"""
+
+        self.assertIn(
+            "content",
+            self.review(
+                patch_text=patch_text,
+                base_readme=base_readme,
+                head_readme=head_readme,
+            ),
+        )
+
+    def test_accepts_valid_entry(self):
+        self.assertEqual(self.review(), set())
+
+    def test_rejects_empty_pr_description(self):
+        self.assertIn("description", self.review(body=" "))
+
+    def test_rejects_changes_outside_readme(self):
+        files = [
+            SimpleNamespace(filename="README.md", patch=VALID_PATCH),
+            SimpleNamespace(filename="code.py", patch="+print(1)"),
+        ]
+        self.assertIn("files", self.review(files=files))
+
+    def test_accepts_two_entries(self):
+        self.assertEqual(self.review(patch_text=TWO_ENTRY_PATCH), set())
+
+    def test_accepts_additions_from_a_stale_branch_using_the_pr_patch(self):
+        base_readme = (
+            "# awesome-quant\n\n"
+            "## Trading & Backtesting\n"
+            "- [Merged Later](https://github.com/example/merged-later) - "
+            "`Python` - Added to main after the PR branch was created.\n"
+        )
+        head_readme = (
+            "# awesome-quant\n\n"
+            "## Trading & Backtesting\n"
+            "- [Fresh One](https://github.com/example/fresh-one) - "
+            "`Python` - Fresh project one.\n"
+            "- [Fresh Two](https://github.com/example/fresh-two) - "
+            "`Python` - Fresh project two.\n"
+        )
+
+        self.assertEqual(
+            self.review(
+                patch_text=TWO_ENTRY_PATCH,
+                base_readme=base_readme,
+                head_readme=head_readme,
+            ),
+            set(),
+        )
+
+    def test_accepts_five_entries(self):
+        self.assertEqual(self.review(patch_text=FIVE_ENTRY_PATCH), set())
+
+    def test_rejects_more_than_five_entries(self):
+        self.assertIn("entry-count", self.review(patch_text=SIX_ENTRY_PATCH))
+
+    def test_validates_every_entry_in_a_multi_entry_pr(self):
+        patch_text = TWO_ENTRY_PATCH.replace(
+            "Fresh project two.",
+            "Fresh project two",
+        )
+
+        findings = self.review(patch_text=patch_text)
+
+        self.assertIn("period", findings)
+        self.assertNotIn("entry-count", findings)
+
+    def test_rejects_duplicate_entries_within_a_multi_entry_pr(self):
+        patch_text = TWO_ENTRY_PATCH.replace(
+            "https://github.com/example/fresh-two",
+            "https://github.com/example/fresh-one",
+        )
+
+        findings = self.review(patch_text=patch_text)
+
+        self.assertIn("duplicates", findings)
+
+    def test_rejects_malformed_entry(self):
+        patch_text = """@@ -1,1 +1,2 @@
+ ## Trading & Backtesting
++- Fresh project without Markdown links
+"""
+        self.assertIn("format", self.review(patch_text=patch_text))
+
+    def test_rejects_unknown_section(self):
+        self.assertIn(
+            "placement",
+            self.review(
+                patch_text=VALID_PATCH.replace(
+                    "Trading & Backtesting",
+                    "Unknown Section",
+                )
+            ),
+        )
+
+    def test_rejects_missing_tags(self):
+        self.assertIn(
+            "tags",
+            self.review(
+                patch_text=VALID_PATCH.replace(
+                    "`Python` - ",
+                    "",
+                )
+            ),
+        )
+
+    def test_rejects_tags_without_required_separator(self):
+        self.assertIn(
+            "tags",
+            self.review(
+                patch_text=VALID_PATCH.replace(
+                    "`Python` - Fresh",
+                    "`Python` Fresh",
+                )
+            ),
+        )
+
+    def test_rejects_description_without_period(self):
+        self.assertIn(
+            "period",
+            self.review(
+                patch_text=VALID_PATCH.replace(
+                    "Fresh project.",
+                    "Fresh project",
+                )
+            ),
+        )
+
+    def test_rejects_insecure_primary_url(self):
+        self.assertIn(
+            "url",
+            self.review(
+                patch_text=VALID_PATCH.replace(
+                    "https://github.com/example/fresh",
+                    "http://github.com/example/fresh",
+                )
+            ),
+        )
+
+    def test_rejects_insecure_trailing_url(self):
+        patch_text = VALID_PATCH.replace(
+            "Fresh project.",
+            "Fresh project. [Website](http://example.com)",
+        )
+        self.assertIn("url", self.review(patch_text=patch_text))
+
+    def test_rejects_malformed_github_suffix(self):
+        patch_text = VALID_PATCH.replace(
+            "Fresh project.",
+            "Fresh project. [GitHub](http://github.com/example/fresh)",
+        )
+        self.assertIn("github-link", self.review(patch_text=patch_text))
+
+    def test_rejects_github_link_that_is_not_the_suffix(self):
+        patch_text = VALID_PATCH.replace(
+            "Fresh project.",
+            (
+                "Fresh project. "
+                "[GitHub](https://github.com/example/fresh) trailing text"
+            ),
+        )
+        self.assertIn("github-link", self.review(patch_text=patch_text))
+
+    def test_accepts_commercial_entry_without_github_repository(self):
+        patch_text = """@@ -1,1 +1,2 @@
+ ## Commercial & Proprietary Services
++- [Fresh](https://example.com/fresh) - Commercial risk calculator.
+"""
+
+        base_readme = "# awesome-quant\n\n## Commercial & Proprietary Services\n"
+
+        self.assertEqual(
+            self.review(patch_text=patch_text, base_readme=base_readme),
+            set(),
+        )
+
+    def test_rejects_entry_without_github_repository(self):
+        patch_text = VALID_PATCH.replace(
+            "https://github.com/example/fresh",
+            "https://example.com/fresh",
+        )
+        self.assertIn("github", self.review(patch_text=patch_text))
+
+    def test_rejects_non_repository_github_path(self):
+        patch_text = VALID_PATCH.replace(
+            "https://github.com/example/fresh",
+            "https://github.com/example/fresh/issues",
+        )
+        self.assertIn("github", self.review(patch_text=patch_text))
+
+    def test_rejects_archived_repository(self):
+        def archive(repository):
+            repository.archived = True
+
+        self.assertIn(
+            "activity",
+            self.review(configure_project=archive),
+        )
+
+    def test_rejects_stale_repository(self):
+        def make_stale(repository):
+            repository.pushed_at = NOW - timedelta(days=366)
+
+        self.assertIn(
+            "activity",
+            self.review(configure_project=make_stale),
+        )
+
+    def test_accepts_archived_stale_historical_repository(self):
+        def make_historical(repository):
+            repository.archived = True
+            repository.pushed_at = NOW - timedelta(days=366)
+
+        patch_text = VALID_PATCH.replace(
+            "Trading & Backtesting",
+            "Historical & Archived Projects",
+        ).replace(
+            "`Python` - Fresh project.",
+            "`Python` `Historical` - Archived reference retained for its early design.",
+        )
+
+        self.assertNotIn(
+            "activity",
+            self.review(patch_text=patch_text, configure_project=make_historical),
+        )
+
+    def test_requires_historical_tag_for_historical_repository(self):
+        patch_text = VALID_PATCH.replace(
+            "Trading & Backtesting",
+            "Historical & Archived Projects",
+        )
+
+        self.assertIn("historical-tag", self.review(patch_text=patch_text))
+
+    def test_requires_non_status_tag_for_historical_repository(self):
+        patch_text = VALID_PATCH.replace(
+            "Trading & Backtesting",
+            "Historical & Archived Projects",
+        ).replace("`Python` - Fresh project.", "`Historical` - Historical project.")
+
+        self.assertIn("tags", self.review(patch_text=patch_text))
+
+    def test_rejects_repository_without_readme(self):
+        def remove_readme(repository):
+            repository.has_root_readme = False
+            repository.has_readme = False
+
+        self.assertIn(
+            "documentation",
+            self.review(configure_project=remove_readme),
+        )
+
+    def test_accepts_alternate_readme_name(self):
+        def use_alternate_readme(repository):
+            repository.has_root_readme = False
+            repository.has_readme = True
+
+        self.assertNotIn(
+            "documentation",
+            self.review(configure_project=use_alternate_readme),
+        )
+
+    def test_readme_api_error_fails_closed(self):
+        def fail_readme_lookup(repository):
+            repository.readme_error = GithubException(
+                500,
+                {"message": "Server Error"},
+            )
+
+        with self.assertRaises(GithubException):
+            self.review(configure_project=fail_readme_lookup)
+
+    def test_rejects_unreachable_primary_url(self):
+        patch_text = """@@ -1,1 +1,2 @@
+ ## Trading & Backtesting
++- [Fresh](https://example.com/fresh) - `Python` - Fresh project. [GitHub](https://github.com/example/fresh)
+"""
+
+        self.assertIn(
+            "reachability",
+            self.review(patch_text=patch_text, reachable=False),
+        )
+
+    def test_rejects_duplicate_in_base_readme(self):
+        base_readme = (
+            "## Trading & Backtesting\n"
+            "- [Fresh](https://github.com/example/old) - "
+            "`Python` - Existing project.\n"
+        )
+        self.assertIn(
+            "duplicates",
+            self.review(base_readme=base_readme),
+        )
+
+
+class MainTests(unittest.TestCase):
+    def run_main(self, review_result):
+        stdout = io.StringIO()
+        stderr = io.StringIO()
+        environment = {
+            "GITHUB_TOKEN": "token",
+            "GITHUB_REPOSITORY": "owner/list",
+            "PR_NUMBER": "10",
+        }
+        with (
+            patch.dict("os.environ", environment, clear=True),
+            patch("sys.argv", ["review_pr.py"]),
+            patch("scripts.review_pr.Github"),
+            patch("scripts.review_pr.review_pr", return_value=review_result),
+            redirect_stdout(stdout),
+            redirect_stderr(stderr),
+        ):
+            result = main()
+        return result, stdout.getvalue(), stderr.getvalue()
+
+    def test_success_reports_passed_checks(self):
+        result, stdout, _stderr = self.run_main(([], "Add Fresh", 1))
+
+        self.assertEqual(result, 0)
+        self.assertIn("description: pass", stdout)
+        self.assertIn("duplicates: pass", stdout)
+
+    def test_success_requires_maintainer_review_including_removal_only(self):
+        for count in (0, 1, 6):
+            with self.subTest(entries=count):
+                result, stdout, _stderr = self.run_main(([], "Audit cleanup", count))
+                self.assertEqual(result, 0)
+                self.assertIn("Recommended action: maintainer review", stdout)
+                self.assertNotIn("Verdict: APPROVE", stdout)
+
+    def test_success_reports_actual_entry_count(self):
+        changed_files = [
+            SimpleNamespace(filename="README.md", patch=FIVE_ENTRY_PATCH)
+        ]
+        base_readme = "# awesome-quant\n\n## Trading & Backtesting\n"
+        head_readme = base_readme + "\n".join(
+            line[1:]
+            for line in FIVE_ENTRY_PATCH.splitlines()
+            if line.startswith("+- ")
+        ) + "\n"
+        repository = FakeBaseRepository(
+            FakePull(10, files=changed_files),
+            base_readme=base_readme,
+            head_readme=head_readme,
+        )
+        client = FakeClient(repository)
+        stdout = io.StringIO()
+        stderr = io.StringIO()
+        environment = {
+            "GITHUB_TOKEN": "token",
+            "GITHUB_REPOSITORY": "owner/list",
+            "PR_NUMBER": "10",
+        }
+        with (
+            patch.dict("os.environ", environment, clear=True),
+            patch("sys.argv", ["review_pr.py"]),
+            patch("scripts.review_pr.Github", return_value=client),
+            redirect_stdout(stdout),
+            redirect_stderr(stderr),
+        ):
+            result = main()
+
+        self.assertEqual(result, 0)
+        self.assertIn("Entries reviewed: 5", stdout.getvalue())
+
+    def test_skip_flag_is_reported_and_forwarded(self):
+        stdout = io.StringIO()
+        stderr = io.StringIO()
+        environment = {
+            "GITHUB_TOKEN": "token",
+            "GITHUB_REPOSITORY": "owner/list",
+            "PR_NUMBER": "10",
+        }
+        with (
+            patch.dict("os.environ", environment, clear=True),
+            patch(
+                "sys.argv",
+                ["review_pr.py", "--skip-pull-request-duplicates"],
+            ),
+            patch("scripts.review_pr.Github"),
+            patch(
+                "scripts.review_pr.review_pr",
+                return_value=([], "Add Fresh", 1),
+            ) as reviewer,
+            redirect_stdout(stdout),
+            redirect_stderr(stderr),
+        ):
+            result = main()
+
+        self.assertEqual(result, 0)
+        self.assertIn("Cross-PR duplicate check: skipped", stdout.getvalue())
+        self.assertIn(
+            "duplicates: pass (existing README only)",
+            stdout.getvalue(),
+        )
+        self.assertFalse(
+            reviewer.call_args.kwargs["check_pull_request_duplicates"]
+        )
+
+    def test_authentication_does_not_emit_a_deprecation_warning(self):
+        stdout = io.StringIO()
+        stderr = io.StringIO()
+        environment = {
+            "GITHUB_TOKEN": "token",
+            "GITHUB_REPOSITORY": "owner/list",
+            "PR_NUMBER": "10",
+        }
+        with (
+            patch.dict("os.environ", environment, clear=True),
+            patch("sys.argv", ["review_pr.py"]),
+            patch("scripts.review_pr.review_pr", return_value=([], "Add Fresh", 1)),
+            redirect_stdout(stdout),
+            redirect_stderr(stderr),
+            warnings.catch_warnings(),
+        ):
+            warnings.simplefilter("error", DeprecationWarning)
+            result = main()
+
+        self.assertEqual(result, 0)
+
+    def test_failure_reports_failed_check_and_nonzero_status(self):
+        finding = Finding("description", "PR body is empty")
+
+        result, stdout, _stderr = self.run_main(([finding], "Add Fresh", 1))
+
+        self.assertEqual(result, 1)
+        self.assertIn("description: fail - PR body is empty", stdout)
+
+    def test_api_error_fails_closed(self):
+        stdout = io.StringIO()
+        stderr = io.StringIO()
+        environment = {
+            "GITHUB_TOKEN": "token",
+            "GITHUB_REPOSITORY": "owner/list",
+            "PR_NUMBER": "10",
+        }
+        with (
+            patch.dict("os.environ", environment, clear=True),
+            patch("sys.argv", ["review_pr.py"]),
+            patch("scripts.review_pr.Github"),
+            patch(
+                "scripts.review_pr.review_pr",
+                side_effect=RuntimeError("API failed"),
+            ),
+            redirect_stdout(stdout),
+            redirect_stderr(stderr),
+        ):
+            result = main()
+
+        self.assertEqual(result, 2)
+        self.assertIn("ERROR API failed", stderr.getvalue())
+
+    def test_invalid_pr_number_fails_closed(self):
+        stdout = io.StringIO()
+        stderr = io.StringIO()
+        environment = {
+            "GITHUB_TOKEN": "token",
+            "GITHUB_REPOSITORY": "owner/list",
+            "PR_NUMBER": "not-a-number",
+        }
+        with (
+            patch.dict("os.environ", environment, clear=True),
+            patch("sys.argv", ["review_pr.py"]),
+            redirect_stdout(stdout),
+            redirect_stderr(stderr),
+        ):
+            result = main()
+
+        self.assertEqual(result, 2)
+        self.assertIn("ERROR PR_NUMBER must be an integer", stderr.getvalue())
+
+
+if __name__ == "__main__":
+    unittest.main()

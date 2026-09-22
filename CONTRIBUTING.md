@@ -1,0 +1,233 @@
+# Contributing
+
+Your contributions are always welcome! Please ensure your pull request meets the following guidelines.
+
+## Entry Format
+
+Each non-commercial entry must include one or more backtick-delimited tags and follow one of
+these formats. Tags work like a compact tag cloud: use concise terms that help readers
+understand the project, such as programming languages, runtimes, protocols, interfaces, data
+types, or domains.
+
+### Single tag
+
+```markdown
+- [Project Name](https://github.com/owner/repo) - `Python` - Short description ending with a period.
+```
+
+Tags are not limited to programming languages. For example:
+
+```markdown
+- [Project Name](https://github.com/owner/repo) - `MCP` - Short description ending with a period.
+```
+
+### Multiple tags
+
+List each tag separately in adjacent backticks:
+
+```markdown
+- [Project Name](https://github.com/owner/repo) - `Python` `Rust` `MCP` - Short description ending with a period.
+```
+
+### Project with website and GitHub repo
+
+For projects that have a dedicated website, link to the site and append the GitHub repo in the description:
+
+```markdown
+- [Project Name](https://project-site.com) - `Python` - Short description ending with a period. [GitHub](https://github.com/owner/repo)
+```
+
+### CRAN project
+
+Link to the CRAN package page. If the project has a GitHub repo, append it after the description:
+
+```markdown
+- [Package Name](https://cran.r-project.org/package=pkgname) - `R` - Short description ending with a period.
+- [Package Name](https://cran.r-project.org/package=pkgname) - `R` - Short description ending with a period. [GitHub](https://github.com/owner/repo)
+```
+
+### PyPI project
+
+Link to the PyPI package page. If the project has a GitHub repo, append it after the description:
+
+```markdown
+- [package-name](https://pypi.org/project/package-name/) - `Python` - Short description ending with a period.
+- [package-name](https://pypi.org/project/package-name/) - `Python` - Short description ending with a period. [GitHub](https://github.com/owner/repo)
+```
+
+### General rules
+
+- Use `https://` URLs only.
+- GitHub repositories containing substantive implementation are strongly preferred and are a
+  major positive relevance signal.
+  Projects with a verifiable GitHub repository are easier to evaluate for source availability,
+  documentation, activity, maintenance, and community adoption, and they receive automated
+  tracking of stars, activity, and archive status on
+  [the awesome-quant site](https://wilsonfreitas.github.io/awesome-quant/).
+- A public GitHub repository containing the substantive implementation is preferred. Use it
+  as the main URL, or append the exact `[GitHub](https://github.com/owner/repo)` suffix when
+  the project has a separate website. Repository-less commercial services are considered only
+  under the eligibility rules below. A substantive GitHub repository mentioned in either place
+  receives the same relevance consideration; repository existence alone does not establish
+  commercial eligibility or functional-section placement.
+- Use short, meaningful tags. Each concept must have its own backtick pair; for example,
+  use `` `Python` `C++` `` rather than `` `Python, C++` ``.
+- The description must end with a period (before the `[GitHub]` link, if present).
+- Keep descriptions concise — one sentence.
+
+## Quality Requirements
+
+- **Active source-backed projects**: Projects backed by substantive source in the active
+  categories must show recent repository activity (commits within the last 12 months) and
+  provide a clear README with usage examples.
+- **Historical & Archived Projects**: This category is the narrow exception to the active
+  activity and archive-state requirements. An entry must use `Historical` plus a language or
+  runtime tag, link to reachable substantive source or documentation, state a specific
+  historical, educational, or foundational reason to retain the project, and clearly disclose
+  that it is archived or unmaintained. It is not for thin wrappers, tutorials, generated data,
+  marketing material, unsupported SDKs, or duplicate implementations.
+- **Repository-less commercial services**: See the permanent-free-tier, public-documentation,
+  and transparency rules in the commercial section below.
+
+
+## Commercial & Proprietary Projects
+
+Public repositories containing substantive implementation remain preferred. A commercial or
+proprietary project without such a repository qualifies only when it has a meaningful permanent
+free tier that provides useful quantitative-finance functionality without requiring payment
+information. Trials, demos, waitlists, and paid-only products do not qualify.
+
+Commercial services without substantive public source—including those with only a thin SDK,
+integration, examples, generated-data, or marketing repository—are repository-less for every
+eligibility check. They must publish pricing and free-tier limits, as well as public documentation,
+methodology, or usage examples. Their entries must use a stable HTTPS URL without affiliate or
+tracking parameters, have a concise, factual, non-promotional description, and be placed in the
+**Commercial & Proprietary Services** section. Use the service name and website as the main
+link; when a supporting repository exists, append it as the exact `[GitHub](...)` suffix.
+Describe the service and relevant free-tier limits, not merely its SDK. Backtick tags are
+optional in that section. For example:
+
+```markdown
+- [Project Name](https://project.example) - Concise factual description ending with a period.
+- [Service Name](https://service.example) - Factual service description with relevant free-tier limits. [GitHub](https://github.com/owner/client)
+```
+
+Reviewers inspect representative source files to establish whether advertised functionality is
+implemented publicly or merely accessed through a proprietary service, and follow linked service
+documentation and pricing pages. Small size, few stars, or recent creation alone do not make a
+repository thin. An open-source SDK license does not make the service open source; substantive
+public implementation may qualify for a functional section even with a paid hosted version.
+
+Only a repository containing substantive implementation supports placement in a functional
+section. Commercial submissions without a qualifying permanent free tier—including paid-only,
+trial-only, demo-only, and waitlist-only offerings—are `REJECT`. Reserve `NEEDS CHANGES` for
+correctable evidence or disclosure, wording, URL, documentation, or placement defects when the
+underlying offering can qualify.
+
+## Section Placement
+
+The README is organized by **category** (not by language). Add your entry under the appropriate category heading (`##`). The available categories are:
+
+- Numerical Libraries & Data Structures
+- Financial Instruments & Pricing
+- Technical Indicators
+- Trading & Backtesting
+- Portfolio Optimization & Risk Analysis
+- Factor Analysis
+- Sentiment Analysis & Alternative Data
+- Time Series Analysis
+- Market Data & Data Sources
+- Prediction Markets
+- Calendars & Market Hours
+- Visualization
+- Excel & Spreadsheet Integration
+- Quant Research Environments
+- Cross-Language Frameworks
+- Reproducing Works, Training & Books
+- Commercial & Proprietary Services
+- Historical & Archived Projects
+- Related Lists
+
+For example, if your project is a Python backtesting library, it goes under `## Trading & Backtesting` (not under Technical Indicators or another category).
+
+If no existing category fits, suggest a new one in your PR description.
+
+## Multiple Related Projects Per PR
+
+**Preferred:** One project per pull request for clarity and focused reviews.
+
+**Acceptable:** Multiple closely related projects in a single PR if they share a common theme or data source. Examples:
+- Multiple data sources from the same market or exchange (e.g., all NSE/BSE tools for Indian markets)
+- Multiple tools from the same author with complementary functionality
+- Multiple APIs/SDKs for the same service or data provider
+- Related packages addressing a specific domain gap (e.g., UK company identifier validators)
+
+When submitting multiple projects:
+- Explain the relationship and rationale in the PR description
+- Ensure each entry is placed in the correct section
+- Avoid creating duplicate entries within the same README file
+- All entries must meet quality and format requirements independently
+
+### Audit cleanup pull requests
+
+Keep cleanup batches focused on existing entries and explain each update, move, or removal
+with supporting evidence in the PR description. A cleanup batch may change more than five
+entries or only remove entries. The reviewer identifies cleanup from the diff: every added
+entry line must correspond one-to-one to a removed entry for the same project. Unrelated new
+projects belong in a separate contribution PR; ordinary contributions retain the limit of
+five added entry lines. Existing indented non-entry references may receive a canonical
+GitHub repository URL repair only: exactly one HTTPS repository link may change, the old and new links must
+resolve to the same immutable GitHub repository ID, and all surrounding text, indentation,
+category, parent entry occurrence, and relative position must remain unchanged. Pair each repair with its existing
+reference; new references, extra copies, removals, and other non-entry prose or heading
+changes are outside cleanup scope. Offline validation checks the repair structure;
+`PR Review` additionally verifies repository identity.
+
+Changed entries still undergo format, section, HTTPS, duplicate, primary-link reachability,
+and repository/documentation checks. Within the same section, cleanup does not reapply the
+new-project activity/archive requirements to an unchanged repository, or require a previously
+repository-less entry to acquire a repository. Replacement repositories and section moves
+receive the normal source and activity checks. These limited exceptions allow legacy links
+to be repaired; they do not establish that the entry meets every current eligibility rule.
+
+Removed entries receive structural checks, without probing the unavailable resources being
+removed. Maintainers must verify the removal evidence, replacement searches, historical
+eligibility, and commercial status as applicable. A passing automated review reports
+`CHECKS PASSED` and requires maintainer review; it does not approve or merge a cleanup.
+
+## Before Submitting
+
+1. Search the existing list to make sure the project is not already included.
+2. Search previous Pull Requests (open and closed) to avoid duplicates.
+3. Make sure the entry format matches exactly — our parser relies on it.
+
+## Required Pull Request Workflows
+
+Every pull request that adds, updates, or removes a README entry must pass both required GitHub Actions
+workflows:
+
+- **`Validate PR`** checks the added README entries against the parser and formatting rules,
+  then verifies that the static site can be generated.
+- **`PR Review`** runs the repository's read-only automated review, including contribution,
+  project-quality, URL, repository, activity, documentation, and existing-README duplicate
+  checks.
+
+Both workflows must pass on the latest pull request revision before the project can be accepted.
+A success from an older revision does not count. If either workflow is failed, pending, cancelled,
+missing, or stale, the pull request is not eligible for approval or merge. Fix any reported issues
+and push a new revision so the required workflows run again.
+
+Passing both workflows is necessary but not sufficient. Maintainers also review relevance,
+description quality, section placement, repository substance, commercial eligibility, and
+duplicates in other open or recently closed pull requests.
+
+## Automatic Rejection
+
+PRs will be closed if:
+
+- Multiple unrelated projects added in a single PR without a clear grouping rationale.
+- Entry format does not match the required pattern.
+- Duplicate of an existing entry or a recently closed PR.
+- Project is archived or abandoned, unless it meets the documented
+  **Historical & Archived Projects** eligibility criteria.
+- Empty PR description.
