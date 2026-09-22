@@ -52,6 +52,16 @@ GITHUB_ACCESS_TOKEN=<token> uv run python parse.py
 
 # Generate static site
 uv run python site/generate.py
+
+# Lint
+uv run ruff check .
+uv run mypy parse.py site/generate.py scripts/
+
+# Tests
+uv run python -m unittest discover -s tests -t .
+
+# Offline link audit (no token needed)
+uv run python scripts/audit_readme.py --no-github
 ```
 
 ## Entry Format

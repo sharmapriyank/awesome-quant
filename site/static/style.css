@@ -393,27 +393,6 @@ button {
   transform: scale(1.08);
 }
 
-.filter-controls select {
-  padding: 0.625rem 2rem 0.625rem 0.875rem;
-  font-family: var(--font);
-  font-size: 0.875rem;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-pill);
-  background: var(--bg-surface);
-  color: var(--ink);
-  appearance: none;
-  background-image: url("data:image/svg+xml,%3Csvg width='10' height='6' viewBox='0 0 10 6' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%2394a3b8' fill='none' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E");
-  background-repeat: no-repeat;
-  background-position: right 0.75rem center;
-  cursor: pointer;
-  outline: none;
-  transition: border-color var(--transition);
-}
-
-.filter-controls select:focus {
-  border-color: var(--accent);
-}
-
 /* ===== Filter Bar ===== */
 .filter-bar {
   display: flex;
