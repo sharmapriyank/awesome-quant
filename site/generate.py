@@ -277,18 +277,14 @@ def build_tag_cloud(entries: list[dict]) -> str:
         # Calculate font size: 1.0 to 1.6
         size = 1.0 + ((count - min_count) / count_range * 0.6) if count_range > 0 else 1.0
 
-        if tag_type == "language":
-            tags.append(
-                f'<button class="tag tag-lang tag-cloud-item" '
-                f'data-filter-type="language" data-filter-value="{esc(value)}" '
-                f'style="font-size: {size:.2f}em;">{esc(value.lower())}</button>'
-            )
-        else:  # category
-            tags.append(
-                f'<button class="tag tag-section tag-cloud-item" '
-                f'data-filter-type="category" data-filter-value="{esc(value)}" '
-                f'style="font-size: {size:.2f}em;">{esc(value)}</button>'
-            )
+        label = esc(value.lower()) if tag_type == "language" else esc(value)
+        cls = "tag-lang" if tag_type == "language" else "tag-section"
+        tags.append(
+            f'<button class="tag {cls} tag-cloud-item" '
+            f'data-filter-type="{tag_type}" data-filter-value="{esc(value)}" '
+            f'style="font-size: {size:.2f}em;">'
+            f'{label} <span class="cloud-count">{count}</span></button>'
+        )
 
     if not tags:
         return ""

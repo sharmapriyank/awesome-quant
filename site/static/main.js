@@ -13,6 +13,7 @@
   const resultsCount = $("#results-count");
   const tableBody = $("tbody", $("#project-table"));
   const sortHeaders = $$("th[data-sort]");
+  const allTags = $$("button.tag");
 
   let activeFilter = { type: "", value: "" };
   let currentSort = { key: "", dir: "" };
@@ -136,6 +137,15 @@
       query || activeFilter.value
         ? `Showing ${visible} project${visible !== 1 ? "s" : ""}`
         : "";
+
+    // Sync pressed state on every filter tag
+    for (const tag of allTags) {
+      const active =
+        tag.dataset.filterType === activeFilter.type &&
+        tag.dataset.filterValue === activeFilter.value;
+      tag.classList.toggle("active", active);
+      tag.setAttribute("aria-pressed", active ? "true" : "false");
+    }
 
     // Sync filter bar
     if (activeFilter.value) {
@@ -310,6 +320,9 @@
       }
     });
   }
+
+  // Tags are toggle buttons — declare the off state before first filter
+  for (const tag of allTags) tag.setAttribute("aria-pressed", "false");
 
   // Store original indices; seed the roving-tabindex entry point
   getRows().forEach((r, i) => (r.dataset.originalIndex = i));
