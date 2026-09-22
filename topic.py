@@ -1,9 +1,15 @@
 
 import os
+import sys
+
 from github import Github
 
-# using an access token
-g = Github(os.environ['GITHUB_ACCESS_TOKEN'])
+# using an access token (GitHub's search API has no anonymous tier)
+token = os.environ.get("GITHUB_ACCESS_TOKEN")
+if not token:
+    sys.exit("GITHUB_ACCESS_TOKEN is required to run topic.py")
+
+g = Github(token)
 
 # ts = g.search_topics('trading')
 

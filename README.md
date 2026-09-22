@@ -361,7 +361,6 @@ A curated list of insanely awesome libraries, packages and resources for Quants 
 - [portfolio-allocation](https://github.com/lequant40/portfolio_allocation_js) - `JavaScript` - PortfolioAllocation is a JavaScript library designed to help constructing financial portfolios made of several assets: bonds, commodities, cryptocurrencies, currencies, exchange traded funds (ETFs), mutual funds, stocks...
 - [Ghostfolio](https://github.com/ghostfolio/ghostfolio) - `JavaScript` - Wealth management software to keep track of financial assets like stocks, ETFs or cryptocurrencies and make solid, data-driven investment decisions.
 - [rebalance](https://github.com/cjroth/rebalance) - `JavaScript` - Interactive portfolio rebalancing tool that imports brokerage CSV data, sets target allocations, and generates trade instructions.
-- [trafalgar](https://github.com/ssantoshp/trafalgar) - `Python` - Python library to make development of portfolio analysis faster and easier.
 
 ## Factor Analysis
 
@@ -388,7 +387,7 @@ A curated list of insanely awesome libraries, packages and resources for Quants 
 - [Asset News Sentiment Analyzer](https://github.com/KVignesh122/AssetNewsSentimentAnalyzer) - `Python` - Sentiment analysis and report generation package for financial assets and securities utilizing GPT models.
 - [Social Stock Sentiment API](https://api.adanos.org/docs) - `Python` - REST API analyzing Reddit and X/Twitter for stock mentions and sentiment, providing buzz scores, trending stocks, and AI-generated trend explanations.
 - [CoWorker Fin-Agent](https://github.com/ZiwayZhao/agent-coworker) - `Python` - LLM-powered A-share stock analysis via P2P agent collaboration. Technical analysis (MA60, volume-price patterns, golden eye), deep research reports using proprietary methodology, and market state summaries. Analysis logic stays private via Skill-as-API protocol.
-- [StockKit](https://stockkit.net/) - `TypeScript` - Free AI-powered stock research reports for US, China & HK using Claude Opus and multi-model AI with 20+ technical indicators. [GitHub](https://github.com/kentmswood-ui/stockkit)
+- [StockKit](https://github.com/kentmswood-ui/stockkit) - `TypeScript` - Free AI-powered stock research reports for US, China & HK using Claude Opus and multi-model AI with 20+ technical indicators.
 - [AlphaAI](https://alphai.io/developers) - `Python` - Pre-analyzed financial news via REST API and MCP for AI agents: per-ticker impact and sentiment, a category, and a 1-10 relevance score on every story, plus structured SEC Form 4 insider data. Free tier, no card. [GitHub](https://github.com/makeev/alphai-mcp)
 
 ## Time Series Analysis
@@ -700,7 +699,6 @@ A curated list of insanely awesome libraries, packages and resources for Quants 
 - [13F Insight](https://13finsight.com/) - Institutional holdings research with a free tier offering one year of holdings history and five AI questions per day, without a credit card.
 - [PortfolioSavvy](https://portfoliosavvy.com/) - Public SEC ownership research web app for exploring 13F portfolios, insider activity, Schedule 13D/G filings, company facts, and latest filing workflows.
 - [Earnings Feed](https://earningsfeed.com/api) - SEC filings, insider transactions, and institutional holdings API with a permanent free tier of 5,000 requests per month and 15 requests per minute, without a credit card. [GitHub](https://github.com/earningsfeed/earningsfeed-python)
-- [EDGAR Events](https://edgarevents.com) - `REST` - SEC filing events as typed JSON: 8-K item codes with materiality flags, SC 13D/13G activist stakes (holder, target, percent of class), merger forms, and S-1/424B IPO filings, polled over REST or pushed via HMAC-signed webhooks, sourced from data.sec.gov.
 - [FilingPulse](https://filingpulse.io) - `REST` `MCP` - Real-time SEC EDGAR filings normalized to one JSON schema: Form 4 insider trades, 8-K corporate events, and S-1/IPO registrations, delivered via REST, HMAC-signed webhooks, and a hosted MCP server, with a permanent free tier (2,500 req/mo, full schema).
 - [Financial Data](https://financialdata.net/) - Financial data API with a free personal-use plan allowing 300 requests per day for symbol lists and selected market data, including historical commodity and OTC prices. [GitHub](https://github.com/financialdatanet/fdnpy)
 - [Filings Flow](https://filingsflow.com) - Free SEC 13F research web app covering 11,700+ institutional managers and 208,000+ filings from 2019 onward. Quarter-over-quarter position changes with share-based thresholds, confidential-treatment reveals badged, per-filing links to the EDGAR source document, and Excel export on every table. No account required.
