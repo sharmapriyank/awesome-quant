@@ -21,6 +21,23 @@ REPO_CONTRIBUTING_URL = f"{REPO_URL}/blob/master/CONTRIBUTING.md"
 MAINTAINER_NAME = os.environ.get("SITE_MAINTAINER_NAME", "sharmapriyank")
 MAINTAINER_URL = os.environ.get("SITE_MAINTAINER_URL", "https://github.com/sharmapriyank")
 
+# Backtick tags that denote a programming language or language runtime — used
+# for the hero "N languages" stat and the tag cloud's language bucket. Topic
+# and format tags (MCP, REST, Historical, Papers, ...) stay filterable via
+# row pills but do not inflate the language count.
+PROGRAMMING_LANGUAGES = frozenset({
+    "C#", "C++", "Elixir/Erlang", "Go", "Haskell", "Java", "JavaScript",
+    "Julia", "Kotlin", "Matlab", "Node.js", "PHP", "Pine Script",
+    "Python", "R", "Ruby", "Rust", "Scala", "TypeScript", "WebAssembly",
+})
+
+NON_LANGUAGE_TAGS = frozenset({
+    "Commercial & Proprietary Services",
+    "Related Lists",
+    "Reproducing Works, Training & Books",
+    "Cross-Language Frameworks",
+})
+
 
 def slugify(text: str) -> str:
     """Convert text to lowercase hyphen-separated slug."""
@@ -113,6 +130,7 @@ def parse_readme(path: str) -> list[dict]:
                         "repo": repo,
                         "stars": 0,
                         "last_commit": "",
+                        "archived": False,
                     }
                 )
 
@@ -126,8 +144,8 @@ def load_csv(path: str) -> list[dict]:
         reader = csv.DictReader(f)
         for row in reader:
             # Normalize booleans
-            for key in ("github", "cran", "pypi", "commercial"):
-                row[key] = row.get(key, "").lower() in ("true", "1", "yes")
+            for key in ("github", "cran", "pypi", "commercial", "archived"):
+                row[key] = str(row.get(key, "")).lower() in ("true", "1", "yes")
             # Normalize numbers
             row["stars"] = int(float(row.get("stars", 0) or 0))
             # Extract github_url and repo from CSV data
@@ -165,10 +183,8 @@ def build_tags_html(e: dict) -> str:
     # Language tags (from inline backtick tags)
     languages_str = e.get("languages", e.get("language", ""))
     languages = [l.strip() for l in languages_str.split(",") if l.strip()]
-    skip_langs = {"Commercial & Proprietary Services", "Related Lists",
-                  "Reproducing Works, Training & Books", "Cross-Language Frameworks"}
     for lang in languages:
-        if lang and lang not in skip_langs:
+        if lang and lang not in NON_LANGUAGE_TAGS:
             tags.append(
                 f'<button class="tag tag-lang" data-filter-type="language" '
                 f'data-filter-value="{esc(lang)}">{esc(lang.lower())}</button>'
@@ -204,6 +220,11 @@ def build_tags_html(e: dict) -> str:
             '<button class="tag tag-source tag-commercial" '
             'data-filter-type="source" data-filter-value="commercial">commercial</button>'
         )
+    if e.get("archived"):
+        tags.append(
+            '<button class="tag tag-source tag-archived" '
+            'data-filter-type="source" data-filter-value="archived">archived</button>'
+        )
 
     return "\n          ".join(tags)
 
@@ -212,16 +233,15 @@ def build_tag_cloud(entries: list[dict]) -> str:
     """Build a tag cloud of popular languages and categories."""
     from collections import Counter
 
-    # Count language frequencies
-    lang_counts = Counter()
+    # Count language frequencies (real programming languages only)
+    lang_counts: Counter = Counter()
     for e in entries:
         langs = [l.strip() for l in e.get("languages", e.get("language", "")).split(",") if l.strip()]
         lang_counts.update(langs)
 
-    # Remove non-language sections
-    skip = {"Commercial & Proprietary Services", "Related Lists", "Reproducing Works, Training & Books", "Cross-Language Frameworks"}
-    for s in skip:
-        lang_counts.pop(s, None)
+    for tag in list(lang_counts):
+        if tag not in PROGRAMMING_LANGUAGES:
+            del lang_counts[tag]
 
     # Count category frequencies
     cat_counts = Counter(e.get("category", "") for e in entries if e.get("category"))
@@ -288,13 +308,7 @@ def generate_html(entries: list[dict]) -> str:
             lang.strip()
             for e in entries
             for lang in e.get("languages", e.get("language", "")).split(",")
-            if lang.strip()
-            and lang.strip() not in {
-                "Commercial & Proprietary Services",
-                "Related Lists",
-                "Reproducing Works, Training & Books",
-                "Cross-Language Frameworks",
-            }
+            if lang.strip() in PROGRAMMING_LANGUAGES
         )
     )
 
@@ -317,6 +331,7 @@ def generate_html(entries: list[dict]) -> str:
         is_cran = e.get("cran", False)
         is_pypi = e.get("pypi", False)
         is_commercial = e.get("commercial", False)
+        is_archived = bool(e.get("archived"))
 
         # Languages attribute (space-separated)
         languages_attr = esc(" ".join(
@@ -349,6 +364,8 @@ def generate_html(entries: list[dict]) -> str:
             sources.append("pypi")
         if is_commercial:
             sources.append("commercial")
+        if is_archived:
+            sources.append("archived")
         sources_attr = esc(" ".join(sources))
 
         tags_html = build_tags_html(e)
@@ -388,6 +405,7 @@ def generate_html(entries: list[dict]) -> str:
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Awesome Quant</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Crect width='24' height='24' rx='5' fill='%230f172a'/%3E%3Cpath d='M4 16l4-6 4 3 6-9' stroke='%2338bdf8' stroke-width='2.5' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3Ccircle cx='18' cy='8' r='1.6' fill='%2338bdf8'/%3E%3C/svg%3E">
   <meta name="description" content="A curated list of insanely awesome libraries, packages and resources for Quants (Quantitative Finance).">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>

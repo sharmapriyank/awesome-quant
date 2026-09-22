@@ -1,9 +1,12 @@
 import json
 import os
+import random
 import re
+import time
 from html.parser import HTMLParser
-from threading import Thread
-from urllib.request import urlopen
+from threading import BoundedSemaphore, Lock, Thread
+from urllib.error import HTTPError
+from urllib.request import Request, urlopen
 
 import pandas as pd
 from github import Auth, Github
@@ -17,6 +20,36 @@ from scripts.readme_entries import (
 )
 
 _github_client = None
+_REPO_CACHE: dict = {}
+_REPO_CACHE_LOCK = Lock()
+# Bound concurrent repo-page requests so token-free runs do not trip
+# GitHub's abuse-rate limiting (each entry spawns its own thread).
+_SCRAPE_SLOTS = BoundedSemaphore(4)
+_SCRAPE_UA = "awesome-quant-bot (metadata check)"
+# Transient codes worth retrying; GitHub signals burst-throttling via 429/403.
+_RETRYABLE = frozenset({403, 429, 500, 502, 503, 504})
+
+
+def _fetch_text(url, attempts=4, timeout=20):
+    """GET `url` as text with jittered exponential backoff on retryable codes."""
+    delay = 5.0
+    for attempt in range(attempts):
+        try:
+            req = Request(url, headers={"User-Agent": _SCRAPE_UA})
+            with urlopen(req, timeout=timeout) as resp:
+                return resp.read().decode("utf-8", errors="replace")
+        except HTTPError as e:
+            if e.code in _RETRYABLE and attempt < attempts - 1:
+                retry_after = e.headers.get("Retry-After") if e.headers else None
+                if retry_after and str(retry_after).isdigit():
+                    wait = float(retry_after)
+                else:
+                    wait = delay
+                time.sleep(wait + random.uniform(0, 2))
+                delay = min(delay * 2, 60)
+                continue
+            raise
+    return ""
 
 
 def get_github_client():
@@ -26,6 +59,62 @@ def get_github_client():
         auth = Auth.Token(os.environ["GITHUB_ACCESS_TOKEN"])
         _github_client = Github(auth=auth)
     return _github_client
+
+
+def _parse_star_count(text):
+    """Normalize a star count like '20,948' or '63.7k' to an int."""
+    text = text.strip().lower().rstrip(".,+")
+    try:
+        if text.endswith("k"):
+            return int(float(text[:-1]) * 1000)
+        if text.endswith("m"):
+            return int(float(text[:-1]) * 1_000_000)
+        return int(text.replace(",", ""))
+    except ValueError:
+        return 0
+
+
+def get_repo_info_scrape(repo):
+    """Fetch last commit date, stars, and archived flag from the repo's
+    github.com page. Token-free fallback for `get_repo_info`.
+
+    Returns (last_commit, stars, archived); empty/0/False on failure.
+    """
+    with _SCRAPE_SLOTS:
+        try:
+            page = _fetch_text(f"https://github.com/{repo}")
+        except Exception as e:
+            print(f"SCRAPE ERROR {repo}: {e}")
+            return "error", 0, False
+
+    stars = 0
+    m = re.search(
+        r'id="repo-stars-counter-star"[^>]*(?:title|aria-label)="([^"]+)"',
+        page,
+    )
+    if not m:
+        m = re.search(r'"stargazerCount"\s*:\s*(\d+)', page)
+    if m:
+        stars = _parse_star_count(m.group(1))
+
+    # The repo page lazy-loads commit history; the commits Atom feed is the
+    # cheap canonical source for the default branch's last commit date.
+    last_commit = ""
+    with _SCRAPE_SLOTS:
+        try:
+            feed = _fetch_text(f"https://github.com/{repo}/commits.atom")
+            m = re.search(r"<updated>(\d{4}-\d{2}-\d{2})", feed)
+            if m:
+                last_commit = m.group(1)
+        except Exception:
+            pass
+
+    archived = bool(
+        re.search(r"This repository has been archived", page)
+        or re.search(r'"isArchived"\s*:\s*true', page)
+        or re.search(r'"archived"\s*:\s*true', page)
+    )
+    return last_commit, stars, archived
 
 
 def extract_repo(url):
@@ -144,19 +233,38 @@ def get_pypi_last_updated(url):
 
 
 def get_repo_info(repo):
-    """Fetch last commit date and star count from GitHub."""
+    """Fetch last commit date, star count, and archived flag for a repo.
+
+    Uses the GitHub API when GITHUB_ACCESS_TOKEN is set; otherwise falls
+    back to scraping the repo's github.com page (token-free). Results are
+    cached so repeated references to one repo only fetch it once.
+
+    Returns (last_commit, stars, archived).
+    """
+    if not repo:
+        return "", 0, False
+    with _REPO_CACHE_LOCK:
+        if repo in _REPO_CACHE:
+            return _REPO_CACHE[repo]
+    if os.environ.get("GITHUB_ACCESS_TOKEN"):
+        result = _get_repo_info_api(repo)
+    else:
+        result = get_repo_info_scrape(repo)
+    with _REPO_CACHE_LOCK:
+        _REPO_CACHE[repo] = result
+    return result
+
+
+def _get_repo_info_api(repo):
+    """Fetch last commit date, star count, and archived flag via the API."""
     try:
-        if repo:
-            r = get_github_client().get_repo(repo)
-            cs = r.get_commits()
-            last_commit = cs[0].commit.author.date.strftime("%Y-%m-%d")
-            stars = r.stargazers_count
-            return last_commit, stars
-        else:
-            return "", 0
+        r = get_github_client().get_repo(repo)
+        cs = r.get_commits()
+        last_commit = cs[0].commit.author.date.strftime("%Y-%m-%d")
+        return last_commit, r.stargazers_count, bool(r.archived)
     except Exception:
         print("ERROR " + repo)
-        return "error", 0
+        return "error", 0, False
 
 
 class Project(Thread):
@@ -202,7 +310,7 @@ class Project(Thread):
 
         repo = extract_repo(github_url)
         print(repo or primary_url)
-        last_commit, stars = get_repo_info(repo)
+        last_commit, stars, archived = get_repo_info(repo)
 
         # Fallback: use CRAN/PyPI dates when no GitHub data
         if not last_commit or last_commit == "error":
@@ -225,6 +333,7 @@ class Project(Thread):
             section_slug=section_slug,
             last_commit=last_commit,
             stars=stars,
+            archived=archived,
             url=primary_url,
             description=description,
             github=is_github or bool(github_url),
