@@ -14,7 +14,9 @@ Review one pull request that adds entries to `README.md`.
 3. Do not modify the PR until the user explicitly approves that action.
 4. Always present findings before asking whether to comment, label, close, or merge.
 5. Always ask before merging.
-6. Enforce `CONTRIBUTING.md` and `AGENTS.md` strictly for new entries.
+6. Enforce `CONTRIBUTING.md` and `AGENTS.md` strictly for new entries, using the
+   sentence-count interpretation in the Validation Checklist below.
+7. Both `Validate PR` and `PR Review` must pass before returning `APPROVE`.
 
 If GitHub MCP tools are unavailable, report that PR operations are blocked and point the user to `docs/codex-setup.md`.
 
@@ -23,8 +25,10 @@ If GitHub MCP tools are unavailable, report that PR operations are blocked and p
 1. Fetch PR details, current head SHA, files changed, labels, comments, and diff with GitHub MCP.
 2. Confirm whether the `reviewed` label or prior maintainer comments exist, then proceed with full validation anyway.
 3. Fetch the latest `Validate PR` workflow/check attempt for the current head SHA and apply the CI evidence rules below.
-4. Focus on added lines in `README.md`. Flag any other changed files as unusual for a normal contribution.
-5. When mechanical validation is not established by current-head CI, save or reconstruct the PR diff locally only if needed, then validate added README entries with:
+4. Fetch the latest `PR Review` workflow/check attempt associated with the pull request and apply
+   the required workflow rules below.
+5. Focus on added lines in `README.md`. Flag any other changed files as unusual for a normal contribution.
+6. When mechanical validation is not established by current-head CI, save or reconstruct the PR diff locally only if needed, then validate added README entries with:
 
 ```bash
 uv run python scripts/validate_readme.py --diff-from <base-ref>
@@ -42,18 +46,22 @@ queued or pending attempt supersedes an older successful attempt for the same SH
 | `success` | Accept parser format, tag syntax, separators, the required final period, HTTPS, GitHub-link syntax, recognized section, and base-README duplicate checks as passed. Do not rerun those mechanical checks. |
 | `failure` | Inspect the failing job or step. Return `NEEDS CHANGES` when validation failed; if another step failed or details are unavailable, reproduce mechanical validation before deciding. |
 | queued, pending, awaiting approval | Report the review as incomplete and do not return `APPROVE`. |
-| skipped, cancelled, missing | Treat mechanical validation as unverified and reproduce it before deciding. |
-| success on an older SHA | Ignore it and evaluate the current SHA using these rules. |
+| skipped, cancelled, missing | Report the review as incomplete and do not return `APPROVE`; reproduce mechanical validation only to provide useful findings. |
+| success on an older SHA | Report the result as stale and do not return `APPROVE`; require a successful attempt for the current SHA. |
 
 CI never replaces inspection of the diff or the manual checks below. A successful check confirms
 only mechanical rules; it does not establish tag meaning or concision, description quality,
 relevance, semantic section suitability, commercial classification, repository quality,
-cross-PR uniqueness, or multi-project relatedness. Search open PRs and PRs closed within the
-last 365 days for duplicate names and URLs.
+commercial free-tier eligibility or transparency, URL tracking, cross-PR uniqueness, or
+multi-project relatedness. CI cannot establish any of these manual criteria. Search open PRs and PRs
+closed within the last 365 days for duplicate names and URLs.
 
-For repository substance and linked commercial services, apply the **Repository Substance and
-Linked Services** investigation in `.agents/skills/sprr/SKILL.md`, including its evidence,
-service-first link, and eligibility verdict rules.
+`PR Review` runs on `pull_request_target`, so use the latest attempt associated with the pull
+request without applying the current-head SHA rule used for `Validate PR`. A successful attempt is
+required but does not prove that current-head mechanical validation passed. If the latest attempt
+fails, inspect its failing job or step. Return `NEEDS CHANGES` when the review reports a PR defect;
+otherwise report the review as incomplete. If it is queued, pending, cancelled, skipped, or
+missing, report the review as incomplete and do not return `APPROVE`.
 
 ## Validation Checklist
 
@@ -66,25 +74,83 @@ For every added entry:
 - Separate concepts use adjacent tags, such as `` `Python` `C++` `MCP` ``; do not reject a tag
   merely because it is not a programming language.
 - Description ends with a period before optional `[GitHub](...)`.
+- Treat `CONTRIBUTING.md`'s "one sentence" wording as concision guidance, not a sentence-count
+  gate. Accept two or more short sentences when the overall description remains concise, factual,
+  relevant, and non-promotional. Never return `NEEDS CHANGES` solely because of sentence count;
+  request wording changes only for actual quality problems such as verbosity, repetition,
+  unsupported claims, promotional language, or poor readability.
 - URLs use `https://`.
 - Optional GitHub link uses `[GitHub](https://github.com/owner/repo)`.
 - Section placement matches the project's purpose.
-- Commercial/proprietary projects are under `Commercial & Proprietary Services`.
+- Distinguish repositories containing substantive implementation from thin SDK, integration,
+  examples, generated-data, or marketing repositories.
+- Hosted proprietary products without substantive public source are under
+  `Commercial & Proprietary Services`, even when a thin repository exists.
+- For repository-less commercial entries, verify a useful permanent free tier for quantitative
+  finance that requires no payment information and is not a trial, demo, or waitlist.
+- Treat a commercial service with only a thin SDK, integration, examples, generated-data, or
+  marketing repository as repository-less for every eligibility check.
+- Verify that these commercial entries publish pricing and free-tier limits plus public
+  documentation, methodology, or usage examples; use a stable HTTPS URL without affiliate or
+  tracking parameters; and have a concise, factual, non-promotional description.
 - Project name and URLs are not duplicates of existing README entries.
 - A verifiable GitHub repository containing substantive implementation, mentioned as the main URL
-  or exact `[GitHub](...)` suffix, is a strong positive relevance signal.
+  or exact `[GitHub](...)` suffix, is a strong positive relevance signal. Repository existence
+  alone does not establish commercial eligibility or functional-section placement.
 - GitHub projects are checked for source availability, activity, archived status,
   documentation, and community evidence. GitHub relevance does not waive duplicate, format,
   or quality checks.
 - Multiple projects in one PR are closely related and explained in the PR body.
 
+## Repository Substance and Linked Services
+
+For every added entry with a repository, investigate what the public source actually provides:
+
+1. Inspect representative implementation files behind the advertised functionality. A README,
+   license, tests, file count, or stars alone do not establish substance.
+2. Trace whether core functionality is implemented publicly or depends on a proprietary service.
+   Identify code that only calls a vendor API, integrates a service, downloads generated output,
+   or provides examples or marketing. External dependencies alone do not make a project thin;
+   assess where the advertised functionality is implemented.
+3. Follow linked service websites, public documentation, and pricing/free-tier pages. Establish
+   the repository's relationship to the service and verify eligibility under `CONTRIBUTING.md`,
+   including useful permanent free access without payment information.
+4. Report concrete evidence: representative source-file links, API dependencies, and relevant
+   service/pricing/documentation links. State unavailable or inconclusive evidence explicitly.
+   Small size, few stars, or recent creation alone do not imply poor quality or commercial status.
+
+When a repository mainly supports a qualifying commercial service, place the entry in
+`Commercial & Proprietary Services`. Use the service name and stable service website as the main
+link, and retain the repository only as the exact `[GitHub](...)` suffix:
+
+```markdown
+- [Service Name](https://service.example) - Factual service description with relevant free-tier limits. [GitHub](https://github.com/owner/client)
+```
+
+Describe the service, not merely its SDK. An open-source client license does not make the hosted
+service open source. Substantive public implementation can qualify for a functional section even
+when its maintainers also sell a hosted service.
+
+- Qualifying service with incorrect placement or a thin repository as its main link:
+  `NEEDS CHANGES`, with a proposed corrected README entry.
+- Confirmed paid-only, trial-only, demo-only, waitlist-only, or otherwise non-qualifying free
+  access: `REJECT`; moving the entry does not fix eligibility.
+- Insufficient evidence of repository substance or service eligibility: `NEEDS CHANGES`, naming
+  the missing evidence without claiming that the service qualifies.
+
 ## Verdicts
 
 Use these verdicts:
 
-- `APPROVE`: entry is ready to merge.
-- `NEEDS CHANGES`: fixable format, section, URL, description, or documentation issue.
-- `REJECT`: duplicate, unrelated multi-project PR, empty PR description, archived/abandoned project, or other hard rejection.
+- `APPROVE`: both required workflows pass and the entry is ready to merge after manual review.
+- Sentence count alone does not affect the verdict; evaluate description quality using the criteria
+  in the Validation Checklist.
+- Commercial submissions without a qualifying permanent free tier—including paid-only,
+  trial-only, demo-only, and waitlist-only offerings—are `REJECT`.
+- Reserve `NEEDS CHANGES` for correctable evidence or disclosure, wording, URL, documentation, or
+  placement defects when the underlying offering can qualify.
+- Other `REJECT` cases include duplicates, unrelated multi-project PRs, empty PR descriptions,
+  archived or abandoned projects, and other hard rejections.
 
 ## Output Shape
 
@@ -99,6 +165,7 @@ Entries reviewed: <count>
 
 Automated validation:
 - Validate PR: PASS | FAIL | PENDING | UNVERIFIED
+- PR Review: PASS | FAIL | PENDING | UNVERIFIED
 - Commit: <checked-sha> (CURRENT | STALE)
 - Mechanical checks: accepted from CI | reproduced manually | incomplete
 
