@@ -54,7 +54,7 @@ def _fetch_text(url, attempts=4, timeout=20):
 
 def get_github_client():
     """Create the GitHub client lazily so importing this module is token-free."""
-    global _github_client
+    global _github_client  # noqa: PLW0603
     if _github_client is None:
         auth = Auth.Token(os.environ["GITHUB_ACCESS_TOKEN"])
         _github_client = Github(auth=auth)
@@ -107,7 +107,7 @@ def get_repo_info_scrape(repo):
             if m:
                 last_commit = m.group(1)
         except Exception:
-            pass
+            last_commit = ""  # feed unreadable; fall through with stars only
 
     archived = bool(
         re.search(r"This repository has been archived", page)
@@ -193,8 +193,7 @@ def get_cran_info(url):
         parser.feed(page_html)
         # Clean trailing slashes or .git from GitHub URL
         gh = parser.github_url.rstrip("/")
-        if gh.endswith(".git"):
-            gh = gh[:-4]
+        gh = gh.removesuffix(".git")
         return parser.date, gh
     except Exception as e:
         print(f"CRAN ERROR {url}: {e}")
@@ -282,20 +281,13 @@ class Project(Thread):
         m = self._match
         primary_url = m.group(2)
         # Use clean_description if it was set by the parser, otherwise extract from match
-        if self.clean_description:
-            description = self.clean_description
-        else:
-            description = m.group(3)
+        description = self.clean_description or m.group(3)
 
         # Check if primary URL is GitHub
         is_github = "github.com" in primary_url
 
         # If not GitHub, check if there's a GitHub link in the description
-        github_url = ""
-        if not is_github:
-            github_url = extract_github_url(description)
-        else:
-            github_url = primary_url
+        github_url = extract_github_url(description) if not is_github else primary_url
 
         is_cran = "cran.r-project.org" in primary_url
         is_pypi = "pypi.org" in primary_url or "pypi.python.org" in primary_url
@@ -324,36 +316,36 @@ class Project(Thread):
         # Build section slug from category or language
         section_slug = slugify(self._category or self._language)
 
-        self.regs = dict(
-            project=m.group(1),
-            language=self._language,
-            languages=",".join(self.languages),
-            category=self._category,
-            section=self._section_path,
-            section_slug=section_slug,
-            last_commit=last_commit,
-            stars=stars,
-            archived=archived,
-            url=primary_url,
-            description=description,
-            github=is_github or bool(github_url),
-            cran=is_cran,
-            pypi=is_pypi,
-            commercial=is_commercial,
-            repo=repo,
-        )
+        self.regs = {
+            "project": m.group(1),
+            "language": self._language,
+            "languages": ",".join(self.languages),
+            "category": self._category,
+            "section": self._section_path,
+            "section_slug": section_slug,
+            "last_commit": last_commit,
+            "stars": stars,
+            "archived": archived,
+            "url": primary_url,
+            "description": description,
+            "github": is_github or bool(github_url),
+            "cran": is_cran,
+            "pypi": is_pypi,
+            "commercial": is_commercial,
+            "repo": repo,
+        }
 
 
 def main():
     projects = []
 
-    with open("README.md", "r", encoding="utf8") as f:
+    with open("README.md", encoding="utf8") as f:
         ret = HEADING_RE
         rex = ENTRY_RE
         re_badge = BADGE_RE
         current_category = ""
-        for line in f:
-            line = re_badge.sub(" ", line)
+        for raw_line in f:
+            line = re_badge.sub(" ", raw_line)
             m = rex.match(line)
             if m:
                 raw_desc = m.group(3).strip()

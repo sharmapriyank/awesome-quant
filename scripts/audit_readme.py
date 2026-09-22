@@ -7,13 +7,14 @@ import os
 import re
 import string
 import sys
+from collections.abc import Callable, Iterable
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from enum import StrEnum
 from itertools import islice
 from pathlib import Path
-from typing import Any, Callable, Iterable
+from typing import Any
 from urllib.parse import quote, urlsplit
 
 from github import Auth, Github, GithubException
@@ -159,7 +160,7 @@ def _render_text(text: str) -> str:
 def render_report(findings: Iterable[Finding], *, checked_at: datetime) -> str:
     """Render findings as stable Markdown suitable for the tracking issue body."""
     ordered_findings = sorted(findings, key=_report_sort_key)
-    checked_at_utc = checked_at.astimezone(timezone.utc)
+    checked_at_utc = checked_at.astimezone(UTC)
     lines = [
         TRACKING_MARKER,
         f"# {TRACKING_TITLE}",
@@ -268,7 +269,7 @@ def _parse_github_repository_url(url: str) -> str | None:
     ):
         return None
 
-    path = parsed.path[:-1] if parsed.path.endswith("/") else parsed.path
+    path = parsed.path.removesuffix("/")
     parts = path.split("/")
     if len(parts) != 3 or parts[0] or not parts[1] or not parts[2]:
         return None
@@ -536,7 +537,7 @@ def main() -> int:
 
     if getattr(args, "no_github", False) is True:
         findings = audit_readme(args.readme)
-        print(render_report(findings, checked_at=datetime.now(timezone.utc)))
+        print(render_report(findings, checked_at=datetime.now(UTC)))
         print(f"README audit (offline): {len(findings)} finding(s)")
         return 0
 
@@ -550,7 +551,7 @@ def main() -> int:
     github_client = Github(auth=Auth.Token(token))
     repository = github_client.get_repo(repository_name)
     findings = audit_readme(args.readme, github_client)
-    body = render_report(findings, checked_at=datetime.now(timezone.utc))
+    body = render_report(findings, checked_at=datetime.now(UTC))
     action = sync_tracking_issue(repository, findings, body)
     print(f"README audit: {len(findings)} finding(s); issue action: {action}")
     return 0

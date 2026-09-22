@@ -10,7 +10,11 @@ dependencies = [
     "pandas>=2.2.0",
     "mypy>=1.14.0",
     "pandas-stubs>=2.2.0",
+    "ruff>=0.12.0",
 ]
 
 [tool.mypy]
 explicit_package_bases = true
+
+[tool.ruff.lint]
+select = ["F", "I", "UP", "SIM", "EXE", "PLW", "C4", "FURB", "PIE", "ISC", "RUF"]

@@ -6,12 +6,11 @@ import http.client
 import ipaddress
 import socket
 import ssl
+from collections.abc import Callable
 from dataclasses import dataclass
 from enum import StrEnum
 from time import sleep
-from typing import Callable
 from urllib.parse import SplitResult, urljoin, urlsplit, urlunsplit
-
 
 USER_AGENT = "awesome-quant-url-audit/1.0"
 RETRYABLE_STATUSES = {408, 425, 500, 502, 503, 504}

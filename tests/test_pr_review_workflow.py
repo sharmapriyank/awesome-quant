@@ -1,7 +1,6 @@
 import unittest
 from pathlib import Path
 
-
 ROOT = Path(__file__).resolve().parents[1]
 WORKFLOW_PATH = ROOT / "ci" / "workflows" / "pr-review.yml"
 EXPECTED_WORKFLOW = """name: PR Review

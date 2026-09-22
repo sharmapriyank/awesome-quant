@@ -7,7 +7,7 @@ import threading
 import time
 import unittest
 from contextlib import redirect_stdout
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta, timezone
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import Mock, patch
@@ -15,12 +15,12 @@ from unittest.mock import Mock, patch
 from github import GithubException
 
 from scripts.audit_readme import (
+    TRACKING_MARKER,
+    TRACKING_TITLE,
     AuditTarget,
     Candidate,
     Finding,
     FindingKind,
-    TRACKING_MARKER,
-    TRACKING_TITLE,
     audit_readme,
     collect_targets,
     main,
@@ -188,9 +188,9 @@ class AuditReadmeMainTests(unittest.TestCase):
                     patch.dict("os.environ", environment, clear=True),
                     patch("scripts.audit_readme.parse_args"),
                     patch("scripts.audit_readme.Github") as github,
+                    self.assertRaisesRegex(RuntimeError, f"^{message}$"),
                 ):
-                    with self.assertRaisesRegex(RuntimeError, f"^{message}$"):
-                        main()
+                    main()
 
                 github.assert_not_called()
 
@@ -199,7 +199,7 @@ class AuditReadmeMainTests(unittest.TestCase):
         repository = object()
         client = SimpleNamespace(get_repo=Mock(return_value=repository))
         finding = SimpleNamespace()
-        checked_at = datetime(2026, 9, 7, 9, 0, tzinfo=timezone.utc)
+        checked_at = datetime(2026, 9, 7, 9, 0, tzinfo=UTC)
         stdout = io.StringIO()
 
         with (
@@ -240,7 +240,7 @@ class AuditReadmeMainTests(unittest.TestCase):
         github.assert_called_once_with(auth="auth")
         client.get_repo.assert_called_once_with("owner/list")
         audit.assert_called_once_with("custom.md", client)
-        clock.now.assert_called_once_with(timezone.utc)
+        clock.now.assert_called_once_with(UTC)
         render.assert_called_once_with([finding], checked_at=checked_at)
         sync.assert_called_once_with(repository, [finding], "report body")
         self.assertEqual(stdout.getvalue(), "README audit: 1 finding(s); issue action: created\n")
@@ -289,9 +289,9 @@ class AuditReadmeMainTests(unittest.TestCase):
             ),
             patch("scripts.audit_readme.Github", return_value=client),
             patch("scripts.audit_readme.audit_readme") as audit,
+            self.assertRaises(RuntimeError) as caught,
         ):
-            with self.assertRaises(RuntimeError) as caught:
-                main()
+            main()
 
         self.assertIs(caught.exception, api_error)
         client.get_repo.assert_called_once_with("owner/list")
@@ -472,7 +472,7 @@ Entries are reported for manual review; this automation did not modify README.md
     def test_render_report_clean_body_has_no_finding_headings(self):
         report = render_report(
             [],
-            checked_at=datetime(2026, 9, 2, 12, 45, tzinfo=timezone.utc),
+            checked_at=datetime(2026, 9, 2, 12, 45, tzinfo=UTC),
         )
 
         self.assertEqual(
@@ -507,7 +507,7 @@ No findings.
 
         report = render_report(
             findings,
-            checked_at=datetime(2026, 9, 2, 12, 45, tzinfo=timezone.utc),
+            checked_at=datetime(2026, 9, 2, 12, 45, tzinfo=UTC),
         )
 
         self.assertIn("<https://redirect.example/new%3E@octocat>", report)
@@ -533,7 +533,7 @@ No findings.
 
         report = render_report(
             [finding],
-            checked_at=datetime(2026, 9, 2, 12, 45, tzinfo=timezone.utc),
+            checked_at=datetime(2026, 9, 2, 12, 45, tzinfo=UTC),
         )
 
         self.assertIn(
@@ -1025,10 +1025,7 @@ No findings.
         self.assertEqual([finding.entry_name for finding in forward], [f"Project {i}" for i in range(8)])
 
     def audit(self, readme, client, observations):
-        if callable(observations):
-            prober = observations
-        else:
-            prober = observations.__getitem__
+        prober = observations if callable(observations) else observations.__getitem__
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "README.md"
             path.write_text(readme, encoding="utf-8")

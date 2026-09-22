@@ -250,9 +250,9 @@ def parse_current_readme(path: str):
     # Track sub-entries that belong to a parent
     last_entry: dict | None = None
 
-    with open(path, "r", encoding="utf-8") as f:
-        for line in f:
-            line = re_badge.sub(" ", line).rstrip("\n")
+    with open(path, encoding="utf-8") as f:
+        for raw_line in f:
+            line = re_badge.sub(" ", raw_line).rstrip("\n")
 
             m = re_h2.match(line)
             if m:
@@ -314,7 +314,7 @@ def classify_entry(entry: dict) -> str:
 
     # Fallback: flag unmapped entries
     print(f"  WARNING: No mapping for ({lang!r}, {cat!r}) — project {name!r}")
-    print(f"           Add to SECTION_MAP or PROJECT_OVERRIDES and rerun.")
+    print("           Add to SECTION_MAP or PROJECT_OVERRIDES and rerun.")
     return "Trading & Backtesting"
 
 
@@ -421,8 +421,8 @@ def main():
     header = [
         "# Awesome Quant",
         "",
-        "A curated list of insanely awesome libraries, packages and resources "
-        "for Quants (Quantitative Finance).",
+        ("A curated list of insanely awesome libraries, packages and resources "
+         "for Quants (Quantitative Finance)."),
         "",
         "[![](https://awesome.re/badge.svg)](https://awesome.re)",
         "",
@@ -446,7 +446,7 @@ def main():
     print(f"Sections: {len(active_sections)}")
     for s in active_sections:
         print(f"  {s}: {len(sections[s])} entries")
-    print(f"\nReview the output, then: mv README.md.new README.md")
+    print("\nReview the output, then: mv README.md.new README.md")
 
 
 if __name__ == "__main__":
