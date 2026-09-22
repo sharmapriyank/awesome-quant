@@ -144,7 +144,10 @@ def validate_public_url(url: str) -> tuple[str, int, str]:
     if not addresses:
         raise UnsafeUrlError("hostname did not resolve")
 
-    return hostname, port, min(addresses)
+    # Prefer IPv4: environments without IPv6 routing must still reach
+    # dual-stack hosts; IPv6-only hosts fall back to their sole family.
+    addresses.sort(key=lambda a: (":" in a, a))
+    return hostname, port, addresses[0]
 
 
 def _host_header(hostname: str, port: int, scheme: str) -> str:
